@@ -1,6 +1,9 @@
 # ignore processing folder
 5_Processing/
 
+# ignore participants' information
+1_Study1_Task_Target/1_2_MaterialProc/1_2_2_Exp1_materials_for_experimenters/Exp_Participant_Appointment_Form.xlsx
+
 # ignore logs
 *.log
 
