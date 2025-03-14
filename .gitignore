@@ -1,0 +1,12 @@
+# ignore processing folder
+5_Processing/
+
+# ignore logs
+*.log
+
+# ignore .env file
+.env
+
+# ignore R history and workspace
+.RData
+.Rhistory
