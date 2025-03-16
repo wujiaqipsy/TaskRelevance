@@ -403,7 +403,7 @@ var matching_prac = {
         { Image: function () { return images[2] }, shape: function () { return texts[2] }, word: function () { return texts[2] }, identify: function () { return key_match[0] } },
     ],
     randomize_order: true,
-    repetitions: 1,//2,练习设置24个trial
+    repetitions: 2,//2,练习设置24个trial
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -417,7 +417,7 @@ var feedback_block_prac = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12); //这里填入prac所有trial数
+        ).last(24); //这里填入prac所有trial数
         let correct_trials = trials.filter({
             correct: true
         });
@@ -464,7 +464,7 @@ var if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，ins
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12);//这里注意：只需要上一组的练习数据，而不是所有的数据！！ 
+        ).last(24);
         var correct_trials = trials.filter({
             correct: true
         });
@@ -483,7 +483,7 @@ var loop_node = {
     loop_function: function () {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12);//填练习阶段所有trial数
+        ).last(24);//填练习阶段所有trial数
         var correct_trials = trials.filter({
             correct: true
         });
@@ -505,7 +505,7 @@ var feedback_goformal_matching = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12);
+        ).last(24);
         let correct_trials = trials.filter({
             correct: true
         });
@@ -632,7 +632,7 @@ let matching_task = {
         { Image: function () { return images[2] }, shape: function () { return texts[2] }, word: function () { return texts[2] }, identify: function () { return key_match[0] } },
     ],
     randomize_order: true,
-    repetitions: 1, //6;一个block里的试次数
+    repetitions: 6, //6;一个block里的试次数 每个条件60个trial,6个条件共360个trial, (12*6)*5=360
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -647,7 +647,7 @@ let feedback_block_matching = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12);// 72;last()填入一个block里的trial总数;
+        ).last(72);// 72;last()填入一个block里的trial总数;
         let correct_trials = trials.filter({
             correct: true
         });
@@ -664,7 +664,7 @@ let feedback_block_matching = {
 };
 
 // 休息指导语
-let blockTotalNum_same = 1;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
+let blockTotalNum_same = 4;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
 let rest_matching_task = {
     type: jsPsychHtmlButtonResponse,
     stimulus: function () {
@@ -700,7 +700,7 @@ let rest_matching_task = {
 var repeatblock_matching = [
     {
         timeline: [matching_task, feedback_block_matching, rest_matching_task],
-        repetitions: 1//5
+        repetitions: 5//5
     },
 
 ];
@@ -896,24 +896,6 @@ let prac_self = {
 
         },
         {
-            Image: function () { return images[0] }, LeftLable: Lable[0], RightLable: Lable[1], shape: function () { return texts[0] },
-            identify: function () {
-                if (myMap.get(images[0]) === "自我") {
-                    return key_classify[0];
-                } else return key_classify[1];
-            },
-
-        },
-        {
-            Image: function () { return images[0] }, LeftLable: Lable[1], RightLable: Lable[0], shape: function () { return texts[0] },
-            identify: function () {
-                if (myMap.get(images[0]) === "自我") {
-                    return key_classify[1];
-                } else return key_classify[0];
-            },
-
-        },
-        {
             Image: function () { return images[1] }, LeftLable: Lable[0], RightLable: Lable[1], shape: function () { return texts[1] },
             identify: function () {
                 if (myMap.get(images[1]) === "自我") {
@@ -951,7 +933,7 @@ let prac_self = {
         }
     ],
     randomize_order: true,
-    repetitions: 1,//；4；32个prac_trial
+    repetitions: 5,//；5；30个prac_trial
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -960,13 +942,14 @@ let prac_self = {
     }
 }
 
+// 整个练习阶段正误反馈
 var feedback_p = {
     type: jsPsychHtmlKeyboardResponse,
     // SOS改
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8); //这里填入timeline_variables里面的trial数量  
+        ).last(30); //6*5=30
         let correct_trials = trials.filter({
             correct: true
         });
@@ -1011,7 +994,7 @@ var if_node_self = { //if_node 用于判断是否呈现feedback，feedback_conti
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8);//上个练习阶段所有trial
+        ).last(30);//30，上个练习阶段所有trial
         var correct_trials = trials.filter({
             correct: true
         });
@@ -1030,7 +1013,7 @@ var freeloop_node_self = {
     loop_function: function () {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8);//32;上个练习阶段所有trial
+        ).last(30);//30;上个练习阶段所有trial
         var correct_trials = trials.filter({
             correct: true
         });
@@ -1051,7 +1034,7 @@ var feedback_goformal_classify = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8);
+        ).last(30);//30
         let correct_trials = trials.filter({
             correct: true
         });
@@ -1192,20 +1175,6 @@ let self = {
             }, shape: function () { return texts[0] }
         },
         {
-            Image: function () { return images[0] }, LeftLable: Lable[0], RightLable: Lable[1], identify: function () {
-                if (myMap.get(images[0]) === "自我") {
-                    return key_classify[0];
-                } else return key_classify[1];
-            }, shape: function () { return texts[0] }
-        },
-        {
-            Image: function () { return images[0] }, LeftLable: Lable[1], RightLable: Lable[0], identify: function () {
-                if (myMap.get(images[0]) === "自我") {
-                    return key_classify[1];
-                } else return key_classify[0];
-            }, shape: function () { return texts[0] }
-        },
-        {
             Image: function () { return images[1] }, LeftLable: Lable[0], RightLable: Lable[1], identify: function () {
                 if (myMap.get(images[1]) === "自我") {
                     return key_classify[0];
@@ -1235,7 +1204,7 @@ let self = {
         }
     ],
     randomize_order: true,
-    repetitions: 1,//8
+    repetitions: 9,//9,被试间设计，包括目标为自我-图形分别为self/friend/stranger，共3种实验条件，每个条件90个trial 90*3=(9*6)*5=240
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -1252,7 +1221,7 @@ let feedback_block = {
         // aaaaa = 1;  筛选，必须要！！！！！！！！！！！
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8);// 64；last()填入一个block里的trial总数
+        ).last(54);// 54；last()填入一个block里的trial总数
         let correct_trials = trials.filter({
             correct: true
         });
@@ -1280,7 +1249,7 @@ let cong_self = {
 
 
 /* 正式实验 休息 */
-let blockTotalNum_Z = 1;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
+let blockTotalNum_Z = 4;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
 let rest_self = {
     type: jsPsychHtmlButtonResponse,
     stimulus: function () {
@@ -1318,7 +1287,7 @@ let rest_self = {
 var repeatblock_self = [
     {
         timeline: [self, feedback_block, rest_self],
-        repetitions: 1 //5个block
+        repetitions: 5 //5个block
     },
     cong_self
 ];
