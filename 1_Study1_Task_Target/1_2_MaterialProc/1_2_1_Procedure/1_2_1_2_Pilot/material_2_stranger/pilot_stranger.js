@@ -39,7 +39,7 @@ timeline.push(preload);
 
 // 标签
 var texts = ["自我", "朋友", "生人"]
-var Lable = ["自我", "其他"]
+var Lable = ["生人", "其他"]
 // matching task key根据被试ID随机
 var key_match = ['arrowleft', 'arrowright']
 // 分类任务按键固定左为yes,右为no，分类标签Label会左右变化
@@ -403,7 +403,7 @@ var matching_prac = {
         { Image: function () { return images[2] }, shape: function () { return texts[2] }, word: function () { return texts[2] }, identify: function () { return key_match[0] } },
     ],
     randomize_order: true,
-    repetitions: 1,//2,练习设置24个trial
+    repetitions: 2,//2,练习设置24个trial
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -417,7 +417,7 @@ var feedback_block_prac = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12); //这里填入prac所有trial数
+        ).last(24); //这里填入prac所有trial数
         let correct_trials = trials.filter({
             correct: true
         });
@@ -464,7 +464,7 @@ var if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，ins
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12);//这里注意：只需要上一组的练习数据，而不是所有的数据！！ 
+        ).last(24);
         var correct_trials = trials.filter({
             correct: true
         });
@@ -483,7 +483,7 @@ var loop_node = {
     loop_function: function () {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12);//填练习阶段所有trial数
+        ).last(24);//填练习阶段所有trial数
         var correct_trials = trials.filter({
             correct: true
         });
@@ -505,7 +505,7 @@ var feedback_goformal_matching = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12);
+        ).last(24);
         let correct_trials = trials.filter({
             correct: true
         });
@@ -632,7 +632,7 @@ let matching_task = {
         { Image: function () { return images[2] }, shape: function () { return texts[2] }, word: function () { return texts[2] }, identify: function () { return key_match[0] } },
     ],
     randomize_order: true,
-    repetitions: 1, //6;一个block里的试次数
+    repetitions: 6, //6;一个block里的试次数 每个条件60个trial,6个条件共360个trial, (12*6)*5=360
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -647,7 +647,7 @@ let feedback_block_matching = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(12);// 72;last()填入一个block里的trial总数;
+        ).last(72);// 72;last()填入一个block里的trial总数;
         let correct_trials = trials.filter({
             correct: true
         });
@@ -664,7 +664,7 @@ let feedback_block_matching = {
 };
 
 // 休息指导语
-let blockTotalNum_same = 1;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
+let blockTotalNum_same = 4;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
 let rest_matching_task = {
     type: jsPsychHtmlButtonResponse,
     stimulus: function () {
@@ -700,7 +700,7 @@ let rest_matching_task = {
 var repeatblock_matching = [
     {
         timeline: [matching_task, feedback_block_matching, rest_matching_task],
-        repetitions: 1//5
+        repetitions: 5//5
     },
 
 ];
@@ -731,7 +731,7 @@ var Instr_classifying_task = {
             "<p style='color:lightgreen; font-size: 35px;'>接下来您将进入图形分类任务</p>" +
             "<p style='color:white; font-size: 35px;'>请您再次记住三种图形与文字标签的对应关系。</p> ",
             `<div class="box">${tmpI}</div>`,
-            "<p style='color:white; font-size: 35px; line-height: 35px;'>在图形分类任务中，<p style='color:lightgreen; font-size: 35px;'>您的任务是将图形分成自我与其他两类。</span></p>" +
+            "<p style='color:white; font-size: 35px; line-height: 35px;'>在图形分类任务中，<p style='color:lightgreen; font-size: 35px;'>您的任务是将图形分成生人与其他两类。</span></p>" +
             "<p style = 'color:white; font-size: 35px;' > 图形上方会显示分类标签，<p style='color:lightgreen; font-size: 35px;'>您需要根据标签的位置按下键盘的左键或右键对图形进行分类</span></p>" +
             "<p style = 'color:white; font-size: 35px; line-height: 35px;' > 分类标签的位置在实验过程中会产生左右变化，<p style='color:lightgreen; font-size: 35px;'>请您尽可能又快又准地按键。</span></p> ",
             middle + end];
@@ -742,8 +742,8 @@ var Instr_classifying_task = {
 }
 timeline.push(Instr_classifying_task);
 
-/* 自我条件练习 */
-var instr_self = {
+/* 生人条件练习 */
+var instr_stranger = {
     type: jsPsychInstructions,
     pages: function () {
         return [
@@ -763,10 +763,10 @@ var instr_self = {
         $("body").css("cursor", "none");
     } 
 }
-timeline.push(instr_self);
+timeline.push(instr_stranger);
 
 //分类任务练习阶段（练习过程鼠标消失，练习结束鼠标出现）
-let prac_self = {
+let prac_stranger = {
     timeline: [
         // 单个试次分类
         {
@@ -833,7 +833,7 @@ let prac_self = {
             // SOS改
             // data: function () { return jsPsych.timelineVariable("identify") },
             on_finish: function (data) {
-                data.condition = "prac_classify_self";
+                data.condition = "prac_classify_stranger";
                 data.correct_response = jsPsych.timelineVariable("identify", true)();
                 data.correct = data.correct_response == data.key_press;//0对1错
                 data.Image = jsPsych.timelineVariable("Image", true)();
@@ -879,7 +879,7 @@ let prac_self = {
         {
             Image: function () { return images[0] }, LeftLable: Lable[0], RightLable: Lable[1], shape: function () { return texts[0] },
             identify: function () {
-                if (myMap.get(images[0]) === "自我") {
+                if (myMap.get(images[0]) === "生人") {
                     return key_classify[0];
                 } else return key_classify[1];
             },
@@ -889,25 +889,7 @@ let prac_self = {
         {
             Image: function () { return images[0] }, LeftLable: Lable[1], RightLable: Lable[0], shape: function () { return texts[0] },
             identify: function () {
-                if (myMap.get(images[0]) === "自我") {
-                    return key_classify[1];
-                } else return key_classify[0];
-            },
-
-        },
-        {
-            Image: function () { return images[0] }, LeftLable: Lable[0], RightLable: Lable[1], shape: function () { return texts[0] },
-            identify: function () {
-                if (myMap.get(images[0]) === "自我") {
-                    return key_classify[0];
-                } else return key_classify[1];
-            },
-
-        },
-        {
-            Image: function () { return images[0] }, LeftLable: Lable[1], RightLable: Lable[0], shape: function () { return texts[0] },
-            identify: function () {
-                if (myMap.get(images[0]) === "自我") {
+                if (myMap.get(images[0]) === "生人") {
                     return key_classify[1];
                 } else return key_classify[0];
             },
@@ -916,7 +898,7 @@ let prac_self = {
         {
             Image: function () { return images[1] }, LeftLable: Lable[0], RightLable: Lable[1], shape: function () { return texts[1] },
             identify: function () {
-                if (myMap.get(images[1]) === "自我") {
+                if (myMap.get(images[1]) === "生人") {
                     return key_classify[0];
                 } else return key_classify[1];
             },
@@ -925,7 +907,7 @@ let prac_self = {
         {
             Image: function () { return images[1] }, LeftLable: Lable[1], RightLable: Lable[0], shape: function () { return texts[1] },
             identify: function () {
-                if (myMap.get(images[1]) === "自我") {
+                if (myMap.get(images[1]) === "生人") {
                     return key_classify[1];
                 } else return key_classify[0];
             },
@@ -934,7 +916,7 @@ let prac_self = {
         {
             Image: function () { return images[2] }, LeftLable: Lable[0], RightLable: Lable[1], shape: function () { return texts[2] },
             identify: function () {
-                if (myMap.get(images[2]) === "自我") {
+                if (myMap.get(images[2]) === "生人") {
                     return key_classify[0];
                 } else return key_classify[1];
             },
@@ -943,7 +925,7 @@ let prac_self = {
         {
             Image: function () { return images[2] }, LeftLable: Lable[1], RightLable: Lable[0], shape: function () { return texts[2] },
             identify: function () {
-                if (myMap.get(images[2]) === "自我") {
+                if (myMap.get(images[2]) === "生人") {
                     return key_classify[1];
                 } else return key_classify[0];
             },
@@ -951,7 +933,7 @@ let prac_self = {
         }
     ],
     randomize_order: true,
-    repetitions: 1,//；4；32个prac_trial
+    repetitions: 5,//；5；30个prac_trial
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -960,13 +942,14 @@ let prac_self = {
     }
 }
 
+// 整个练习阶段正误反馈
 var feedback_p = {
     type: jsPsychHtmlKeyboardResponse,
     // SOS改
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8); //这里填入timeline_variables里面的trial数量  
+        ).last(30); //6*5=30
         let correct_trials = trials.filter({
             correct: true
         });
@@ -978,7 +961,7 @@ var feedback_p = {
     }
 }
 
-var instr_repractice_self = { //在这里呈现文字recap，让被试再记一下
+var instr_repractice_stranger = { //在这里呈现文字recap，让被试再记一下
     type: jsPsychInstructions,
     pages: function () {
         let start = "<p class='header' style='font-size:35px; line-height:35px;'>请您努力记下如下匹配对应关系，再次进行练习。</p>",
@@ -990,7 +973,7 @@ var instr_repractice_self = { //在这里呈现文字recap，让被试再记一�
         });
         return ["<p class='header' style='font-size:35px; line-height:35px;'>您的正确率未达到进入正式实验的要求。</p>",
             start + `<div class="box">${tmpI}</div>`,
-            "<p style='color:white; font-size: 35px; line-height: 35px;'>在图形分类任务中，<p style='color:lightgreen; font-size: 35px;'>您的任务是将图形分成自我图形与其他图形两类。</span></p>" +
+            "<p style='color:white; font-size: 35px; line-height: 35px;'>在图形分类任务中，<p style='color:lightgreen; font-size: 35px;'>您的任务是将图形分成生人图形与其他图形两类。</span></p>" +
             "<p style = 'color:white; font-size: 35px;' > 图形上方会显示分类标签，<p style='color:lightgreen; font-size: 35px;'>您需要根据标签的位置按下键盘的左键或右键对图形进行分类</span></p>" +
             "<p style = 'color:white; font-size: 35px; line-height: 35px;' > 分类标签的位置在实验过程中会产生左右变化，<p style='color:lightgreen; font-size: 35px;'>请您尽可能又快又准地按键。</span></p> ",
             middle + end];
@@ -1006,12 +989,12 @@ var instr_repractice_self = { //在这里呈现文字recap，让被试再记一�
     }
 }
 
-var if_node_self = { //if_node 用于判断是否呈现feedback，feedback_continue_practice
-    timeline: [feedback_p, instr_repractice_self],
+var if_node_stranger = { //if_node 用于判断是否呈现feedback，feedback_continue_practice
+    timeline: [feedback_p, instr_repractice_stranger],
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8);//上个练习阶段所有trial
+        ).last(30);//30，上个练习阶段所有trial
         var correct_trials = trials.filter({
             correct: true
         });
@@ -1024,13 +1007,13 @@ var if_node_self = { //if_node 用于判断是否呈现feedback，feedback_conti
     }
 }
 
-var freeloop_node_self = {
-    timeline: [prac_self, if_node_self],
-    // 判断是否进入循环，进入循环前已完成prac_self, if_node_self
+var freeloop_node_stranger = {
+    timeline: [prac_stranger, if_node_stranger],
+    // 判断是否进入循环，进入循环前已完成prac_stranger, if_node_stranger
     loop_function: function () {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8);//32;上个练习阶段所有trial
+        ).last(30);//30;上个练习阶段所有trial
         var correct_trials = trials.filter({
             correct: true
         });
@@ -1042,7 +1025,7 @@ var freeloop_node_self = {
         }
     }
 }
-timeline.push(freeloop_node_self);
+timeline.push(freeloop_node_stranger);
 
 
 // 分类任务：进入正式实验指导语
@@ -1051,7 +1034,7 @@ var feedback_goformal_classify = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8);
+        ).last(30);//30
         let correct_trials = trials.filter({
             correct: true
         });
@@ -1073,7 +1056,7 @@ timeline.push(feedback_goformal_classify);
 
 
 /* 分类任务：正式实验（实验过程中鼠标消失，实验结束鼠标出现）*/
-let self = {
+let stranger = {
     timeline: [
         // 刺激
         {
@@ -1137,7 +1120,7 @@ let self = {
             //SOS 改
             // data: function () { return jsPsych.timelineVariable("identify") },
             on_finish: function (data) {
-                data.condition = "classify_self";
+                data.condition = "classify_stranger";
                 data.correct_response = jsPsych.timelineVariable("identify", true)();
                 data.correct = data.correct_response == data.key_press;//0对1错
                 data.Image = jsPsych.timelineVariable("Image", true)();
@@ -1179,63 +1162,49 @@ let self = {
     timeline_variables: [
         {
             Image: function () { return images[0] }, LeftLable: Lable[0], RightLable: Lable[1], identify: function () {
-                if (myMap.get(images[0]) === "自我") {
+                if (myMap.get(images[0]) === "生人") {
                     return key_classify[0];
                 } else return key_classify[1];
             }, shape: function () { return texts[0] }
         },
         {
             Image: function () { return images[0] }, LeftLable: Lable[1], RightLable: Lable[0], identify: function () {
-                if (myMap.get(images[0]) === "自我") {
-                    return key_classify[1];
-                } else return key_classify[0];
-            }, shape: function () { return texts[0] }
-        },
-        {
-            Image: function () { return images[0] }, LeftLable: Lable[0], RightLable: Lable[1], identify: function () {
-                if (myMap.get(images[0]) === "自我") {
-                    return key_classify[0];
-                } else return key_classify[1];
-            }, shape: function () { return texts[0] }
-        },
-        {
-            Image: function () { return images[0] }, LeftLable: Lable[1], RightLable: Lable[0], identify: function () {
-                if (myMap.get(images[0]) === "自我") {
+                if (myMap.get(images[0]) === "生人") {
                     return key_classify[1];
                 } else return key_classify[0];
             }, shape: function () { return texts[0] }
         },
         {
             Image: function () { return images[1] }, LeftLable: Lable[0], RightLable: Lable[1], identify: function () {
-                if (myMap.get(images[1]) === "自我") {
+                if (myMap.get(images[1]) === "生人") {
                     return key_classify[0];
                 } else return key_classify[1];
             }, shape: function () { return texts[1] }
         },
         {
             Image: function () { return images[1] }, LeftLable: Lable[1], RightLable: Lable[0], identify: function () {
-                if (myMap.get(images[1]) === "自我") {
+                if (myMap.get(images[1]) === "生人") {
                     return key_classify[1];
                 } else return key_classify[0];
             }, shape: function () { return texts[1] }
         },
         {
             Image: function () { return images[2] }, LeftLable: Lable[0], RightLable: Lable[1], identify: function () {
-                if (myMap.get(images[2]) === "自我") {
+                if (myMap.get(images[2]) === "生人") {
                     return key_classify[0];
                 } else return key_classify[1];
             }, shape: function () { return texts[2] }
         },
         {
             Image: function () { return images[2] }, LeftLable: Lable[1], RightLable: Lable[0], identify: function () {
-                if (myMap.get(images[2]) === "自我") {
+                if (myMap.get(images[2]) === "生人") {
                     return key_classify[1];
                 } else return key_classify[0];
             }, shape: function () { return texts[2] }
         }
     ],
     randomize_order: true,
-    repetitions: 1,//8
+    repetitions: 9,//9,被试间设计，包括目标为生人-图形分别为self/friend/stranger，共3种实验条件，每个条件90个trial 90*3=(9*6)*5=240
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -1252,7 +1221,7 @@ let feedback_block = {
         // aaaaa = 1;  筛选，必须要！！！！！！！！！！！
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(8);// 64；last()填入一个block里的trial总数
+        ).last(54);// 54；last()填入一个block里的trial总数
         let correct_trials = trials.filter({
             correct: true
         });
@@ -1267,10 +1236,10 @@ let feedback_block = {
          $("body").css("cursor", "default"); //鼠标出现
     }
 };
-let cong_self = {
+let cong_stranger = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
-  <p>恭喜您完成自我图形的分类任务。</p>
+  <p>恭喜您完成生人图形的分类任务。</p>
   <p> <div style = "color: green"><按任意键继续></div></p>
   `,
     choices: "ALL_KEYS",
@@ -1280,15 +1249,15 @@ let cong_self = {
 
 
 /* 正式实验 休息 */
-let blockTotalNum_Z = 1;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
-let rest_self = {
+let blockTotalNum_Z = 4;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
+let rest_stranger = {
     type: jsPsychHtmlButtonResponse,
     stimulus: function () {
         let totaltrials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
         );
         return `
-                  <p>自我图形分类任务中，您还剩余${blockTotalNum_Z}组实验</p>
+                  <p>生人图形分类任务中，您还剩余${blockTotalNum_Z}组实验</p>
                   <p>现在是休息时间，当您结束休息后，您可以点击 结束休息 按钮 继续</p>
                   <p>建议休息时间还剩余<span id="iii">60</span>秒</p>`
     },
@@ -1315,18 +1284,18 @@ let rest_self = {
 
 
 /* 正式实验 时间线 */
-var repeatblock_self = [
+var repeatblock_stranger = [
     {
-        timeline: [self, feedback_block, rest_self],
-        repetitions: 1 //5个block
+        timeline: [stranger, feedback_block, rest_stranger],
+        repetitions: 5 //5个block
     },
-    cong_self
+    cong_stranger
 ];
 
 //SOS改
 timeline.push({
     timeline: [{
-        timeline: repeatblock_self,
+        timeline: repeatblock_stranger,
     }]
 });
 
