@@ -70,9 +70,11 @@ df <- df_raw %>%
   select(
          -trial_type,
          )
+  # 1-24为pilot version 1，25-30为pilot version 2
+  # filter(!(sub_inx %in% 1:24))
 df
 
-write.csv(df,file = "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_long.csv")
+# write.csv(df,file = "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_long.csv")
 
 ```
 
@@ -113,7 +115,7 @@ df.match.acc <- df.match.acc %>%
   pivot_wider(names_from = c("shape", "matchness"), values_from = "ACC")
 df.match.acc
   
-write_excel_csv(df.match.acc,file = "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_matching_acc.csv")
+# write_excel_csv(df.match.acc,file = "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_matching_acc.csv")
 
 ```
 
@@ -157,7 +159,7 @@ df.match.rt <- df.match.rt%>%
   pivot_wider(names_from = c("shape", "matchness"), values_from = "rt")
 df.match.rt
 
-write_excel_csv(df.match.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_matching_rt.csv")
+# write_excel_csv(df.match.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_matching_rt.csv")
 ```
 
 # 分类任务：ACC数据集
@@ -193,7 +195,7 @@ df.acc <- df.classify.acc %>%
   pivot_wider(names_from = c("shape"), values_from = "ACC")
 df.acc
   
-write_excel_csv(df.acc,file = "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_classify_acc.csv")
+# write_excel_csv(df.acc,file = "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_classify_acc.csv")
 ```
 
 # 分类任务：RT数据集
@@ -234,95 +236,5 @@ df.rt <- df.classify.rt%>%
   pivot_wider(names_from = c("shape"), values_from = "rt")
 df.rt
 
-write_excel_csv(df.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_classify_rt.csv")
+# write_excel_csv(df.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_classify_rt.csv")
 ```
-# 预实验
-## 材料1数据
-```{r}
-# 匹配任务
-df.match.mat1.rt <- df.match.rt%>%
-  filter(subj_idx %in% c(1:12))
-df.match.mat1.rt
-write_excel_csv(df.match.mat1.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_1_mat1/mat1_match_task_rt.csv")
-
-df.match.mat1.acc <- df.match.acc%>%
-  filter(subj_idx %in% c(1:12))
-df.match.mat1.acc
-write_excel_csv(df.match.mat1.acc, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_1_mat1/mat1_match_task_acc.csv")
-
-# 分类任务
-df.classify.mat1.rt <- df.rt%>%
-  filter(subj_idx %in% c(1:12))
-df.classify.mat1.rt
-write_excel_csv(df.classify.mat1.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_1_mat1/mat1_classify_task_rt.csv")
-
-df.classify.mat1.acc <- df.acc%>%
-  filter(subj_idx %in% c(1:12))
-df.classify.mat1.acc
-write_excel_csv(df.classify.mat1.acc, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_1_mat1/mat1_classify_task_acc.csv")
-
-```
-
-## 材料2数据
-```{r}
-# 匹配任务
-df.match.mat2.rt <- df.match.rt%>%
-  filter(subj_idx %in% c(13:24))
-df.match.mat2.rt
-write_excel_csv(df.match.mat2.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_match_task_rt.csv")
-
-df.match.mat2.acc <- df.match.acc%>%
-  filter(subj_idx %in% c(13:24))
-df.match.mat2.acc
-write_excel_csv(df.match.mat2.acc, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_match_task_acc.csv")
-
-# 分类任务
-
-# rt
-df.classify.mat2.rt <- df.rt%>%
-  filter(subj_idx %in% c(13:24))
-df.classify.mat2.rt
-write_excel_csv(df.classify.mat2.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_classify_task_rt.csv")
-
-
-df.classify.mat2.self.rt <- df.classify.mat2.rt%>%
-  filter(condition == "classify_self")
-write_excel_csv(df.classify.mat2.self.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_classify_self_rt.csv")
-
-
-df.classify.mat2.friend.rt <- df.classify.mat2.rt%>%
-  filter(condition == "classify_friend")
-write_excel_csv(df.classify.mat2.friend.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_classify_friend_rt.csv")
-
-
-df.classify.mat2.stranger.rt <- df.classify.mat2.rt%>%
-  filter(condition == "classify_stranger")
-write_excel_csv(df.classify.mat2.stranger.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_classify_stranger_rt.csv")
-
-
-# ACC
-df.classify.mat2.acc <- df.acc%>%
-  filter(subj_idx %in% c(13:24))
-
-df.classify.mat2.acc
-write_excel_csv(df.classify.mat2.acc, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_classify_task_acc.csv")
-
-
-df.classify.mat2.self.acc <- df.classify.mat2.acc%>%
-  filter(condition == "classify_self")
-write_excel_csv(df.classify.mat2.self.acc, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_classify_self_acc.csv")
-
-
-df.classify.mat2.friend.acc <- df.classify.mat2.acc%>%
-  filter(condition == "classify_friend")
-write_excel_csv(df.classify.mat2.friend.acc, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_classify_friend_acc.csv")
-
-
-df.classify.mat2.stranger.acc <- df.classify.mat2.acc%>%
-  filter(condition == "classify_stranger")
-write_excel_csv(df.classify.mat2.stranger.acc, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/1_4_1_pilot/1_4_1_2_mat2/mat2_classify_stranger_acc.csv")
-
-
-```
-
-
