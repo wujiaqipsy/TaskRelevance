@@ -41,9 +41,9 @@ timeline.push(preload);
 var texts = ["自我", "朋友", "生人"]
 var Lable = ["朋友", "其他"]
 // matching task key根据被试ID随机
-var key_match = ['arrowleft', 'arrowright']
+var key_match = ['f', 'j']
 // 分类任务按键固定左为yes,右为no，分类标签Label会左右变化
-var key_classify = ['arrowleft', 'arrowright']
+var key_classify = ['f', 'j']
 let acc = 70;//正确率70%
 let view_texts_images = [];
 
@@ -127,15 +127,6 @@ var information = {
                 console.log(permutation(key_match, 2))
                 console.log(key_match)
 
-                // 在指导语中显示按键的中文字符
-                key_match_chinese = []
-                for (var i = 0; i < key_match.length; i++) {
-                    if (key_match[i] === 'arrowleft') {
-                        key_match_chinese.push('左键');
-                    } else if (key_match[i] === 'arrowright') {
-                        key_match_chinese.push('右键');
-                    }
-                }
 
                 // 呈现shape-label联接
                 view_texts_images = []
@@ -260,19 +251,19 @@ var Instructions = {
             end = "<p style = 'font-size: 35px; line-height: 30px;'>如果您记住了三个对应关系及按键规则，请点击 继续 </span></p><div>";
         let tmpI = "";
         view_texts_images.forEach(v => {
-            tmpI += `<p class="content">${v}</p>`;
+            tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
         });
         // SOS 改！
         return [`<p class='header' style = 'font-size: 35px'>实验说明：</p>
-            <p style='color:white; font-size: 35px;line-height: 30px;'>您好,欢迎参加本实验。本次实验大约需要45分钟完成。</p>
+            <p style='color:white; font-size: 35px;line-height: 30px;'>您好,欢迎参加本实验。本次实验大约需要40分钟完成。</p>
             <p style='color:white; font-size: 35px;'>在本实验中，您需要完成一个知觉匹配任务与一个图形分类任务。</p>
             <p style='color:white; font-size: 35px;'>在任务开始前，您将学习三种图形与三种标签的对应关系。</p>`,
             start + `<div class="box">${tmpI}</div>`,
             `<p class='footer' style='font-size: 35px; line-height: 30px;'>首先进行知觉匹配任务。</p>
       <p class='footer' style='font-size: 35px; line-height: 30px;'>在知觉匹配任务中，您的任务是判断图形与文字标签是否匹配，</p>
-      <p class='footer' style='color:white; font-size: 35px;'>如果二者<span style="color: lightgreen;">匹配</span>，请按键盘 <span style="color: lightgreen; font-size:35px">${key_match_chinese[0]}</span></p>
-      <p class='footer' style='color:white; font-size: 35px;'>如果二者<span style="color: lightgreen;">不匹配</span>，请按键盘<span style="color: lightgreen; font-size:35px"> ${key_match_chinese[1]}</p></span>
-      <p class='footer' style='color:white; font-size: 22px;'>请在实验过程中将您右手的<span style="color: lightgreen;">食指和无名指</span>放在电脑键盘的相应键位上准备按键。</p></span>`,
+      <p class='footer' style='color:white; font-size: 35px;'>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen; font-size:35px">${key_match[0]}键</span></p>
+      <p class='footer' style='color:white; font-size: 35px;'>如果二者<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen; font-size:35px"> ${key_match[1]}键</p></span>
+      <p class='footer' style='color:white; font-size: 22px;'>在实验过程中请将您分别将<span style="color: lightgreen;">左手和右手的食指</span>放在电脑键盘的相应键位上准备按键。</p></span>`,
             `<p style='color:white; font-size: 35px; line-height: 30px;'>接下来，您将进入知觉匹配任务的练习部分</p>
       <p class='footer' style='color:lightgreen; font-size: 35px;'>请您又快又准地进行按键。</p>
       <p style='color:white; font-size: 35px; line-height: 30px;'>通过练习后,您将进入知觉匹配任务的正式试验。</p>
@@ -336,7 +327,7 @@ var matching_prac = {
                 }
             ],
 
-            choices: ['arrowleft', 'arrowright'],
+            choices: ['f', 'j'],
             response_start_time: 1000,//开始作答时间，第二个刺激开始计算
             trial_duration: 2500,//结束时间，一共作答时间持续1500ms
             // SOS 改 这行代码看似闲置
@@ -403,7 +394,7 @@ var matching_prac = {
         { Image: function () { return images[2] }, shape: function () { return texts[2] }, word: function () { return texts[2] }, identify: function () { return key_match[0] } },
     ],
     randomize_order: true,
-    repetitions: 2,//2,练习设置24个trial
+    repetitions: 2,//2,练习设置24个trial.12*2=24
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -435,7 +426,7 @@ var instr_repractice = { //在这里呈现文字回顾，让被试再记一下
     pages: function () {
         let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记下如下匹配对应关系，并再次进行练习。</p>",
             middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-            end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：</p><p style='font-size:35px; line-height:30px;'>请按 继续 进入练习</p><div>";
+            end = "<p style = 'font-size: 35px; line-height: 35px;'>如果您明白了规则：请按 继续 进入练习 </p><div>";
         let tmpI = "";
         view_texts_images.forEach(v => {
             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
@@ -443,8 +434,8 @@ var instr_repractice = { //在这里呈现文字回顾，让被试再记一下
         return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
             start + `<div class="box">${tmpI}</div>`,
             `<p class='footer' style='font-size:35px; line-height:30px;'>您的任务是判断图形与文字标签是否匹配，</p>
-      <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">匹配</span>，请按键盘 <span style="color: lightgreen;">${key_match_chinese[0]}</span></p>
-      <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">不匹配</span>，请按键盘<span style="color: lightgreen;"> ${key_match_chinese[1]}</p>
+      <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen;">${key_match[0]}键</span></p>
+      <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen;"> ${key_match[1]}键</p>
       </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
             middle + end];
     },
@@ -464,7 +455,7 @@ var if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，ins
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(24);
+        ).last(24);//这里注意：只需要上一组的练习数据，而不是所有的数据！！ 
         var correct_trials = trials.filter({
             correct: true
         });
@@ -517,7 +508,7 @@ var feedback_goformal_matching = {
             "<p class='context'>您的平均反应时为" + rt + "毫秒。</p >" +
             "<p class='context'>恭喜您完成练习。按任意键进入知觉匹配任务正式实验。</p >" +
             "<p style = 'color:lightgreen; font-size: 35px;' >正式实验与练习要求相同，请您尽可能又快又准地进行按键反应</p>" +
-            "<p class='footer' style='font-size: 22px; line-height:40px;'>请将您右手的<span style='color: lightgreen;'>食指与无名指</span>放在电脑键盘的相应键位上进行按键。</p >"
+            "<p class='footer' style='font-size: 22px; line-height:40px;'>在实验过程中请将您分别将<span style='color: lightgreen;'>左手和右手的食指</span>放在电脑键盘的相应键位上进行按键。</p >"
     },
     on_finish: function () {
         $("body").css("cursor", "none");
@@ -570,7 +561,7 @@ let matching_task = {
                 }
             ],
 
-            choices: ['arrowleft', 'arrowright'],
+            choices: ['f', 'j'],
             response_start_time: 1000,//开始作答时间，第二个刺激开始计算
             trial_duration: 2500,//结束时间，一共作答时间持续1500ms
             // SOS 改
@@ -632,7 +623,7 @@ let matching_task = {
         { Image: function () { return images[2] }, shape: function () { return texts[2] }, word: function () { return texts[2] }, identify: function () { return key_match[0] } },
     ],
     randomize_order: true,
-    repetitions: 6, //6;一个block里的试次数 每个条件60个trial,6个条件共360个trial, (12*6)*5=360
+    repetitions: 6, //6;单个block72个trials,12*6=72
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -700,7 +691,7 @@ let rest_matching_task = {
 var repeatblock_matching = [
     {
         timeline: [matching_task, feedback_block_matching, rest_matching_task],
-        repetitions: 5//5
+        repetitions: 5//5个blocks
     },
 
 ];
@@ -717,23 +708,22 @@ timeline.push({
 var Instr_classifying_task = {
     type: jsPsychInstructions,
     pages: function () {
-        let start = "<p class='header' style = 'font-size: 35px'>请您记住如下对应关系:</p>",
+        let start = "<p class='header' style = 'font-size: 35px'>请您再次记住如下对应关系:</p>",
             middle = "<p class='footer'  style = 'font-size: 35px'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
             end = "<p style = 'font-size: 35px; line-height: 35px;'>如果您明白了规则：请点击 继续 </p><div>";
         // 呈现图形--标签对应关系
         let tmpI = "";
         view_texts_images.forEach(v => {
-            tmpI += `<p class="content">${v}</p>`;
+            tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
         });
         // SOS 改
         return [
-            "<p class='header' style = 'font-size: 35px'>恭喜您完成知觉匹配任务！</p>" +
-            "<p style='color:lightgreen; font-size: 35px;'>接下来您将进入图形分类任务</p>" +
-            "<p style='color:white; font-size: 35px;'>请您再次记住三种图形与文字标签的对应关系。</p> ",
-            `<div class="box">${tmpI}</div>`,
-            "<p style='color:white; font-size: 35px; line-height: 35px;'>在图形分类任务中，<p style='color:lightgreen; font-size: 35px;'>您的任务是将图形分成朋友与其他两类。</span></p>" +
-            "<p style = 'color:white; font-size: 35px;' > 图形上方会显示分类标签，<p style='color:lightgreen; font-size: 35px;'>您需要根据标签的位置按下键盘的左键或右键对图形进行分类</span></p>" +
-            "<p style = 'color:white; font-size: 35px; line-height: 35px;' > 分类标签的位置在实验过程中会产生左右变化，<p style='color:lightgreen; font-size: 35px;'>请您尽可能又快又准地按键。</span></p> ",
+            `<p class='header' style = 'font-size: 35px'>恭喜您完成知觉匹配任务！</p>
+            <p style='color:lightgreen; font-size: 35px;'>接下来您将进入图形分类任务</p>`,
+            start + `<div class="box">${tmpI}</div>`,
+            `<p style='color:white; font-size: 35px; line-height: 35px;'>在图形分类任务中，<p style='color:lightgreen; font-size: 35px;'>您的任务是将图形分成朋友与其他两类。</span></p>
+            <p style = 'color:white; font-size: 35px;' > 图形上方会显示分类标签，<p style='color:lightgreen; font-size: 35px;'>您需要根据标签的位置按下键盘的f键或j键对图形进行分类</span></p>
+            <p style = 'color:white; font-size: 35px; line-height: 35px;' > 分类标签的位置在实验过程中会产生左右变化，<p style='color:lightgreen; font-size: 35px;'>请您尽可能又快又准地按键。</span></p> `,
             middle + end];
     },
     show_clickable_nav: true,
@@ -792,7 +782,7 @@ let prac_friend = {
                     width: 190,  // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190, // 调整图片大小 视角：3.8° x 3.8°
                     show_start_time: 1000, // ms after the start of the trial
-                    show_end_time: 1100,// 2000
+                    show_end_time: 1054,// 2000
                     origin_center: true
                 },//上一组end时间减去下一组show时间就是空屏的100ms
                 {
@@ -806,8 +796,8 @@ let prac_friend = {
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
                     //SOS 改
-                    show_start_time: 1100, // ms after the start of the trial
-                    show_end_time: 2600,//1100
+                    show_start_time: 1054, // ms after the start of the trial
+                    show_end_time: 2554,//1100
                     origin_center: true
                 },
                 {
@@ -821,15 +811,15 @@ let prac_friend = {
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
                     // SOS改
-                    show_start_time: 1100, // ms after the start of the trial
-                    show_end_time: 2600,//1100
+                    show_start_time: 1054, // ms after the start of the trial
+                    show_end_time: 2554,//1100
                     origin_center: true
                 },
 
             ],
-            choices: ['arrowleft', 'arrowright'],
-            response_start_time: 1100,//开始作答时间
-            trial_duration: 2600,
+            choices: ['f', 'j'],
+            response_start_time: 1054,//开始作答时间
+            trial_duration: 2554,
             // SOS改
             // data: function () { return jsPsych.timelineVariable("identify") },
             on_finish: function (data) {
@@ -914,6 +904,24 @@ let prac_friend = {
             
         },
         {
+            Image: function () { return images[1] }, LeftLable: Lable[0], RightLable: Lable[1], shape: function () { return texts[1] },
+            identify: function () {
+                if (myMap.get(images[1]) === "朋友") {
+                    return key_classify[0];
+                } else return key_classify[1];
+            },
+            
+        },
+        {
+            Image: function () { return images[1] }, LeftLable: Lable[1], RightLable: Lable[0], shape: function () { return texts[1] },
+            identify: function () {
+                if (myMap.get(images[1]) === "朋友") {
+                    return key_classify[1];
+                } else return key_classify[0];
+            },
+            
+        },
+        {
             Image: function () { return images[2] }, LeftLable: Lable[0], RightLable: Lable[1], shape: function () { return texts[2] },
             identify: function () {
                 if (myMap.get(images[2]) === "朋友") {
@@ -933,7 +941,7 @@ let prac_friend = {
         }
     ],
     randomize_order: true,
-    repetitions: 5,//；5；30个prac_trial
+    repetitions: 4,//；4；练习32个trials.8*4=32
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -942,14 +950,13 @@ let prac_friend = {
     }
 }
 
-// 整个练习阶段正误反馈
 var feedback_p = {
     type: jsPsychHtmlKeyboardResponse,
     // SOS改
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(30); //6*5=30
+        ).last(32); //32, 这里填入timeline_variables里面的trial数量  
         let correct_trials = trials.filter({
             correct: true
         });
@@ -966,15 +973,16 @@ var instr_repractice_friend = { //在这里呈现文字recap，让被试再记�
     pages: function () {
         let start = "<p class='header' style='font-size:35px; line-height:35px;'>请您努力记下如下匹配对应关系，再次进行练习。</p>",
             middle = "<p class='footer' style='font-size:35px; line-height:35px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-            end = "<p style='font-size:35px; line-height:35px;'>如果您明白了规则：</p><p style='font-size:22px; line-height:25px;'>请按 继续 进入练习</p><div>";
+            end = "<p style = 'font-size: 35px; line-height: 35px;'>如果您明白了规则：请按 继续 进入练习 </p><div>";
         let tmpI = "";
         view_texts_images.forEach(v => {
-            tmpI += `<p class="content" style='font-size:25px'>${v}</p>`;
+            tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+            
         });
         return ["<p class='header' style='font-size:35px; line-height:35px;'>您的正确率未达到进入正式实验的要求。</p>",
             start + `<div class="box">${tmpI}</div>`,
             "<p style='color:white; font-size: 35px; line-height: 35px;'>在图形分类任务中，<p style='color:lightgreen; font-size: 35px;'>您的任务是将图形分成朋友图形与其他图形两类。</span></p>" +
-            "<p style = 'color:white; font-size: 35px;' > 图形上方会显示分类标签，<p style='color:lightgreen; font-size: 35px;'>您需要根据标签的位置按下键盘的左键或右键对图形进行分类</span></p>" +
+            "<p style = 'color:white; font-size: 35px;' > 图形上方会显示分类标签，<p style='color:lightgreen; font-size: 35px;'>您需要根据标签的位置按下键盘的f键或j键对图形进行分类</span></p>" +
             "<p style = 'color:white; font-size: 35px; line-height: 35px;' > 分类标签的位置在实验过程中会产生左右变化，<p style='color:lightgreen; font-size: 35px;'>请您尽可能又快又准地按键。</span></p> ",
             middle + end];
     },
@@ -994,7 +1002,7 @@ var if_node_friend = { //if_node 用于判断是否呈现feedback，feedback_con
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(30);//30，上个练习阶段所有trial
+        ).last(32);//32,上个练习阶段所有trial
         var correct_trials = trials.filter({
             correct: true
         });
@@ -1013,7 +1021,7 @@ var freeloop_node_friend = {
     loop_function: function () {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(30);//30;上个练习阶段所有trial
+        ).last(32);//32;上个练习阶段所有trial
         var correct_trials = trials.filter({
             correct: true
         });
@@ -1034,7 +1042,7 @@ var feedback_goformal_classify = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(30);//30
+        ).last(32);
         let correct_trials = trials.filter({
             correct: true
         });
@@ -1045,7 +1053,7 @@ var feedback_goformal_classify = {
             "<p class='context'>您的平均反应时为" + rt + "毫秒。</p>" +
             "<p class='context'>恭喜您完成练习。按任意键进入分类任务正式实验。</p>" +
             "<p style = 'color:lightgreen; font-size: 35px;' >正式实验与练习要求相同，请您尽可能又快又准地进行按键反应</p>" +
-            "<p class='footer' style='font-size: 22px; line-height:40px;'>请将您右手的<span style='color: lightgreen;'>食指与无名指</span>放在电脑键盘的相应键位上进行按键。</p>"
+            "<p class='footer' style='font-size: 22px; line-height:40px;'>在实验过程中请将您分别将<span style='color: lightgreen;'>左手和右手的食指</span>放在电脑键盘的相应键位上进行按键。</p>"
     },
     on_finish: function () {
         $("body").css("cursor", "none");
@@ -1081,7 +1089,7 @@ let friend = {
                     width: 190,  // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190, // 调整图片大小 视角：3.8° x 3.8°
                     show_start_time: 1000, // ms after the start of the trial
-                    show_end_time: 1100,// 
+                    show_end_time: 1054,// 
                     origin_center: true
                 },//上一组end时间减去下一组show时间就是空屏的100ms
                 {
@@ -1094,8 +1102,8 @@ let friend = {
                     },
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
-                    show_start_time: 1100, // ms after the start of the trial
-                    show_end_time: 2600,//1100
+                    show_start_time: 1054, // ms after the start of the trial
+                    show_end_time: 2554,//1100
                     origin_center: true
                 },
                 {
@@ -1108,15 +1116,15 @@ let friend = {
                     },
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
-                    show_start_time: 1100, // ms after the start of the trial
-                    show_end_time: 2600,//1100
+                    show_start_time: 1054, // ms after the start of the trial
+                    show_end_time: 2554,//1100
                     origin_center: true
                 },
 
             ],
-            choices: ['arrowleft', 'arrowright'],
-            response_start_time: 1100,//开始作答时间
-            trial_duration: 2500,
+            choices: ['f', 'j'],
+            response_start_time: 1054,//开始作答时间
+            trial_duration: 2554,
             //SOS 改
             // data: function () { return jsPsych.timelineVariable("identify") },
             on_finish: function (data) {
@@ -1189,6 +1197,20 @@ let friend = {
             }, shape: function () { return texts[1] }
         },
         {
+            Image: function () { return images[1] }, LeftLable: Lable[0], RightLable: Lable[1], identify: function () {
+                if (myMap.get(images[1]) === "朋友") {
+                    return key_classify[0];
+                } else return key_classify[1];
+            }, shape: function () { return texts[1] }
+        },
+        {
+            Image: function () { return images[1] }, LeftLable: Lable[1], RightLable: Lable[0], identify: function () {
+                if (myMap.get(images[1]) === "朋友") {
+                    return key_classify[1];
+                } else return key_classify[0];
+            }, shape: function () { return texts[1] }
+        },
+        {
             Image: function () { return images[2] }, LeftLable: Lable[0], RightLable: Lable[1], identify: function () {
                 if (myMap.get(images[2]) === "朋友") {
                     return key_classify[0];
@@ -1204,7 +1226,7 @@ let friend = {
         }
     ],
     randomize_order: true,
-    repetitions: 9,//9,被试间设计，包括目标为朋友-图形分别为self/friend/stranger，共3种实验条件，每个条件90个trial 90*3=(9*6)*5=240
+    repetitions: 8,//每个block64个trial, 8*8=64
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -1221,7 +1243,7 @@ let feedback_block = {
         // aaaaa = 1;  筛选，必须要！！！！！！！！！！！
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(54);// 54；last()填入一个block里的trial总数
+        ).last(64);// 64；last()填入一个block里的trial总数
         let correct_trials = trials.filter({
             correct: true
         });
