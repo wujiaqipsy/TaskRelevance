@@ -69,9 +69,10 @@ df <- df_raw %>%
   # 剔除无关变量
   select(
          -trial_type,
-         )
+         )%>%
+  filter(subj_idx == 27)
   # 1-24为pilot version 1，25-30为pilot version 2
-  # filter(!(sub_inx %in% 1:24))
+  # filter(!(subj_idx %in% 1:24))
 df
 
 # write.csv(df,file = "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_long.csv")
