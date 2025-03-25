@@ -1,0 +1,108 @@
+---
+title: "Topdown_pilot_single_subject_analysis"
+author: "wujiaqi"
+date: "2025-03-25"
+output: html_document
+---
+```{r}
+# load packages
+# 使用pacman管理包
+if (!require(pacman)){
+        install.packages("pacman")
+        library(pacman)
+}
+
+# 使用p_load批量加载包并自动下载并加载未安装的包
+pacman::p_load('tidyverse', 'ggplot2')
+```
+
+```{r warning=FALSE}
+setwd("C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis")
+
+df_raw <- list.files(file.path("../1_3_RawData"), pattern = "exp1_.*\\.csv$") %>%
+  # 对读取到的所有.out文件x都执行函数read.table
+  lapply(function(x) read.csv(file.path("../1_3_RawData", x), header = TRUE)) %>%
+    # 读取被试人口学信息
+  lapply(function(df) mutate(df,subj_idx = as.numeric(jsonlite::fromJSON(response[5])$Q0), 
+          gender = jsonlite::fromJSON(response[6]),
+          year = jsonlite::fromJSON(response[7])$Q0,
+          education = jsonlite::fromJSON(response[8])$Q0,
+          dist = view_dist_mm[9],
+          rt = as.numeric(rt),
+          success = as.character(success),
+          timeout = as.character(timeout),
+          correct = as.character(correct),
+          correct = gsub("TRUE", "true", correct),
+          RightLable = as.character(RightLable)))%>%
+  bind_rows()
+```
+
+```{r}
+df <- df_raw %>% 
+  # 选择变量
+  select(subj_idx, 
+         gender, # 男0女1
+         year, 
+         #education, 
+         #dist, 
+         rt, 
+         correct_response, 
+         correct, 
+         key_press, 
+         # Image, 
+         word, # labels in matching task
+         shape, # shapes in matching task
+         condition, # task types
+         trial_type,
+         ) %>%
+  # 选择正式实验试次
+  dplyr::filter(
+    trial_type == "psychophysics" &
+    condition != "prac_matching_task" &
+    condition != "prac_classify_self" &
+    condition !="prac_classify_friend" &
+    condition !="prac_classify_stranger"
+  )%>%
+  # 再次剔除无关变量
+  select(
+         -trial_type,
+         )
+
+  # 1-24为pilot version 1 data，25-30为pilot version 2 data
+  # filter(!(subj_idx %in% 1:24))
+df
+
+```
+```{r}
+# 被试分类任务的反应时间分布
+df.binary.norm <- df %>% 
+  # filter(subj_idx == 26)%>%
+  filter(!(subj_idx %in% 1:24))%>%
+  filter(condition != "matching_task") %>%
+  group_by(subj_idx, shape) %>%
+  summarise(
+    rt.mean = mean(rt, na.rm = TRUE),
+    rt.sd = sd(rt, na.rm = TRUE),
+    density = dnorm(x=rt, mean=rt.mean, sd=rt.sd),
+    rt=rt,
+    condition = condition
+    ) 
+df.binary.norm
+
+ggplot(df.binary.norm, aes(x=rt, y=density, color=shape)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  facet_wrap(~subj_idx+condition) +
+  theme(
+    legend.position = "right",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA)
+    ) +
+  labs(title = "Reaction time distribution of each subject",
+       x = "Reaction time (ms)",
+       y = "Density")
+  
+```
+
