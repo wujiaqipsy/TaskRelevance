@@ -99,12 +99,12 @@ df.match.acc <- df%>%
     N = length(ACC),
     countN = sum(ACC),
     ACC = sum(ACC) / length(ACC)
-  )%>%
-  # 1-12行为材料1，13-24行为材料2
-  mutate(material = case_when(
-    subj_idx %in% c(1:12) ~ 1,  
-    TRUE ~ 2,                
-  ))
+  )
+  # # 1-12行为材料1，13-24行为材料2
+  # mutate(material = case_when(
+  #   subj_idx %in% c(1:12) ~ 1,  
+  #   TRUE ~ 2,                
+  # ))
 
 
 # 图形标签匹配任务：ACC数据集(适用R)
@@ -112,7 +112,7 @@ df.match.acc
 
 # 图形标签匹配任务：ACC数据集（适用JASP）
 df.match.acc <- df.match.acc %>%
-  select(subj_idx,gender, year, material, matchness,shape,ACC) %>%
+  select(subj_idx,gender, year, matchness,shape,ACC) %>%
   pivot_wider(names_from = c("shape", "matchness"), values_from = "ACC")
 df.match.acc
   
@@ -129,11 +129,11 @@ df.match.rt <- df %>%
     matchness = ifelse(word == shape, "match", "mismatch")
   )%>%
   # 剔除错误试次
-  dplyr::filter(correct == "true")%>%
-  mutate(material = case_when(
-    subj_idx %in% c(1:12) ~ 1,  
-    TRUE ~ 2,                
-  ))
+  dplyr::filter(correct == "true")
+  # mutate(material = case_when(
+  #   subj_idx %in% c(1:12) ~ 1,  
+  #   TRUE ~ 2,                
+  # )
 
 # the number of RT out of range: rt<200ms or rt >1500ms
 rt.out.range <- sum(df.match.rt$rt < 200 | df.match.rt$rt > 1500)
@@ -144,7 +144,7 @@ df.match.rt <- df.match.rt %>%
     subj_idx,
     gender,
     year,
-    material,
+    # material,
     matchness,
     shape
   )%>%
@@ -180,11 +180,11 @@ df.classify.acc <- df %>%
     N = length(ACC),
     countN = sum(ACC),
     ACC = sum(ACC) / length(ACC)
-  )%>%
-  mutate(material = case_when(
-    subj_idx %in% c(1:12) ~ 1,  
-    TRUE ~ 2,                
-  ))
+  )
+  # mutate(material = case_when(
+  #   subj_idx %in% c(1:12) ~ 1,  
+  #   TRUE ~ 2,                
+  # ))
   
 
 # 分类任务ACC数据（适用R）
@@ -192,7 +192,7 @@ df.classify.acc
 
 # 分类任务ACC数据（适用JASP）
 df.acc <- df.classify.acc %>%
-  select(subj_idx,gender, year, material, condition,shape,ACC) %>%
+  select(subj_idx,gender, year, condition,shape,ACC) %>%
   pivot_wider(names_from = c("shape"), values_from = "ACC")
 df.acc
   
@@ -206,11 +206,11 @@ df.classify.rt <- df %>%
   dplyr::filter(condition != 'matching_task')%>%
   select(everything())%>%
   # 剔除错误试次
-  dplyr::filter(correct == "true")%>%
-  mutate(material = case_when(
-    subj_idx %in% c(1:12) ~ 1,  
-    TRUE ~ 2,                
-  ))
+  dplyr::filter(correct == "true")
+  # mutate(material = case_when(
+  #   subj_idx %in% c(1:12) ~ 1,  
+  #   TRUE ~ 2,                
+  # ))
 
 # the number of RT out of range: rt<200ms or rt >1500ms
 rt.out.range <- sum(df.classify.rt$rt < 200 | df.classify.rt$rt > 1500)
@@ -221,7 +221,7 @@ df.classify.rt <- df.classify.rt %>%
     subj_idx,
     gender,
     year,
-    material,
+    # material,
     condition,
     shape
   )%>%
@@ -237,5 +237,7 @@ df.rt <- df.classify.rt%>%
   pivot_wider(names_from = c("shape"), values_from = "rt")
 df.rt
 
-# write_excel_csv(df.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_classify_rt.csv")
+write_excel_csv(df.classify.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_classify_3shape_rt.csv")
+
+write_excel_csv(df.rt, "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_classify_3shape_jasp_rt.csv")
 ```
