@@ -3,11 +3,14 @@
 
 # ignore participants' information
 1_Study1_Task_Target/1_2_MaterialProc/1_2_2_Exp1_materials_for_experimenters/Exp_Participant_Appointment_Form.xlsx
+1_Study1_Task_Target/1_2_MaterialProc/1_2_2_Exp1_materials_for_experimenters/Exp1_Survey_Participants.csv
 
 # # ignore raw data temporally
-# 1_Study1_Task_Target/1_3_RawData/
-# 2_Study2_Task_Relevence/2_3_RawData/
-# 3_Study3_Cognitive_Load/3_3_RawData/
+1_Study1_Task_Target/1_3_RawData/
+2_Study2_Task_Relevence/2_3_RawData/
+3_Study3_Cognitive_Load/3_3_RawData/
+
+
 
 # ignore logs
 *.log
