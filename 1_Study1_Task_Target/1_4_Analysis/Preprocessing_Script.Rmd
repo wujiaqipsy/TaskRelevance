@@ -72,7 +72,7 @@ df <- df_raw %>%
          )%>%
   # filter(subj_idx == 99)
   # 1-24为pilot version 1，25-30为pilot version 2
-  filter(!(subj_idx %in% 1:24))
+  filter(!(subj_idx %in% 1:30))
 df
 
 # write.csv(df,file = "C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis/exp1_long.csv")
