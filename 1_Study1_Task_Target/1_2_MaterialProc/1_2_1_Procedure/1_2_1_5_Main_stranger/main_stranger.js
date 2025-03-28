@@ -21,6 +21,13 @@ function permutation(arr, num) {
     return r;
 }
 
+// 定义一个函数，使注视点呈现时间为 200 到 1100 毫秒的均匀分布随机值
+function getRandomTime() {
+    const min = 200;
+    const max = 1100;
+    return Math.round(min + (max - min) * Math.random());
+}
+
 // 时间线
 var timeline = []
 
@@ -79,13 +86,6 @@ timeline.push(basic_information);
 
 // 存储被试信息：ID
 var info = []
-
-//方便测试
-// info["ID"] = 123;
-// 使用 permutation函数和参与者的ID来随机化实验材料，
-// images = permutation(images, 3)[parseInt(info["ID"]) % 6]//变整取余，提取组合
-// key = permutation(key, 2)[parseInt(info["ID"]) % 2]
-
 
 /* basic data collection jsPsychInstructions trial 被试基本信息收集与根据ID随机化 */
 var information = {
@@ -282,6 +282,7 @@ var Instructions = {
 }
 timeline.push(Instructions);
 
+let stimuliStartTime = 0;
 // 知觉匹配任务：练习阶段
 var matching_prac = {
     timeline: [
@@ -290,14 +291,38 @@ var matching_prac = {
             type: jsPsychPsychophysics,
             stimuli: [
                 {
-                    obj_type: 'cross',
+                    obj_type: 'cross',// fixation
                     startX: "center", // location of the cross's center in the canvas
                     startY: "center",
                     line_length: 40, // pixels 视角：0.8° x 0.8°
                     line_width: 5,
                     line_color: 'white', // You can use the HTML color name instead of the HEX color.
-                    show_start_time: 500,
-                    show_end_time: 1100// ms after the start of the trial
+                    show_start_time: 500, // 刺激开始呈现时刻，以试次开始为原点
+                    show_end_time: function() {
+                        const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
+                        const fixationEndTime = 500 + fixationDuration; // 注视点结束时刻，以试次开始为原点
+                        stimuliStartTime = fixationEndTime; // 更新下一个刺激的开始时刻
+                        console.log('注视点结束时间：', fixationEndTime);
+                        return fixationEndTime;
+                    }
+                },
+                {
+                    obj_type: 'cross',// cross connect shape and label
+                    startX: "center", // location of the cross's center in the canvas
+                    startY: "center",
+                    line_length: 40, // pixels 视角：0.8° x 0.8°
+                    line_width: 5,
+                    line_color: 'white', // You can use the HTML color name instead of the HEX color.
+                    show_start_time:  function() {
+                        console.log('十字开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const crossDuration = 100; // 十字呈现时间
+                        const crossEndTime = stimuliStartTime + crossDuration;
+                        console.log('十字结束时间：', crossEndTime);
+                        return crossEndTime;
+                    },
                 },
                 {
                     obj_type: "image",
@@ -307,8 +332,16 @@ var matching_prac = {
                     scale: 0.5,//图片缩小一倍
                     width: 190,  // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190, // 调整图片大小 视角：3.8° x 3.8°
-                    show_start_time: 1000, // ms after the start of the trial
-                    show_end_time: 1100,//出现50ms
+                    show_start_time:  function() {
+                        console.log('图片开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const imageDuration = 100; // 图片呈现时间
+                        const imageEndTime = stimuliStartTime + imageDuration;
+                        console.log('图片结束时间：', imageEndTime);
+                        return imageEndTime;
+                    },
                     origin_center: true
                 },//上一组end时间减去下一组show时间就是空屏的100ms
                 {
@@ -321,17 +354,29 @@ var matching_prac = {
                     },
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
-                    show_start_time: 1000, // ms after the start of the trial
-                    show_end_time: 1100,
+                    show_start_time:  function() {
+                        console.log('文字开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const textDuration = 100; // 标签呈现时间
+                        const textEndTime = stimuliStartTime + textDuration;
+                        console.log('文字结束时间：', textEndTime);
+                        return textEndTime;
+                    },
                     origin_center: true
                 }
             ],
 
             choices: ['f', 'j'],
-            response_start_time: 1000,//开始作答时间，第二个刺激开始计算
-            trial_duration: 2500,//结束时间，一共作答时间持续1500ms
-            // SOS 改 这行代码看似闲置
-            // data: function () { return jsPsych.timelineVariable("identify") },
+            response_start_time: function() {
+                return stimuliStartTime; // 反应开始时间：从刺激呈现就可以反应
+            },
+            trial_duration: function() {
+                const reationDuration = 1500; // 反应时间1500ms
+                const trialEndTime = stimuliStartTime + reationDuration;
+                return trialEndTime;
+            },//一个试次总时长
             on_finish: function (data) {
                 data.correct_response = jsPsych.timelineVariable("identify", true)();
                 // correct是该试次正确情况
@@ -394,7 +439,7 @@ var matching_prac = {
         { Image: function () { return images[2] }, shape: function () { return texts[2] }, word: function () { return texts[2] }, identify: function () { return key_match[0] } },
     ],
     randomize_order: true,
-    repetitions: 2,//2,练习设置24个trial.12*2=24
+    repetitions: 2,//2,练习设置24个trial
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -408,7 +453,7 @@ var feedback_block_prac = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(24); //这里填入prac所有trial数
+        ).last(24); //24, 这里填入prac所有trial数
         let correct_trials = trials.filter({
             correct: true
         });
@@ -455,7 +500,7 @@ var if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，ins
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(24);//这里注意：只需要上一组的练习数据，而不是所有的数据！！ 
+        ).last(24);//24, 这里注意：只需要上一组的练习数据，而不是所有的数据！！ 
         var correct_trials = trials.filter({
             correct: true
         });
@@ -474,7 +519,7 @@ var loop_node = {
     loop_function: function () {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(24);//填练习阶段所有trial数
+        ).last(24);//24, 填练习阶段所有trial数
         var correct_trials = trials.filter({
             correct: true
         });
@@ -517,61 +562,109 @@ var feedback_goformal_matching = {
 timeline.push(feedback_goformal_matching);
 
 // 知觉匹配任务：正式实验
-let matching_task = {
+var matching_task = {
     timeline: [
-        // 单试次
+        // 实验试次
         {
             type: jsPsychPsychophysics,
             stimuli: [
                 {
-                    obj_type: 'cross',
+                    obj_type: 'cross',// fixation
                     startX: "center", // location of the cross's center in the canvas
                     startY: "center",
                     line_length: 40, // pixels 视角：0.8° x 0.8°
                     line_width: 5,
                     line_color: 'white', // You can use the HTML color name instead of the HEX color.
-                    show_start_time: 500,
-                    show_end_time: 1100// ms after the start of the trial
+                    show_start_time: 500, // 刺激开始呈现时刻，以试次开始为原点
+                    show_end_time: function() {
+                        const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
+                        const fixationEndTime = 500 + fixationDuration; // 注视点结束时刻，以试次开始为原点
+                        stimuliStartTime = fixationEndTime; // 更新下一个刺激的开始时刻
+                        console.log('注视点结束时间：', fixationEndTime);
+                        return fixationEndTime;
+                    }
+                },
+                {
+                    obj_type: 'cross',// cross connect shape and label
+                    startX: "center", // location of the cross's center in the canvas
+                    startY: "center",
+                    line_length: 40, // pixels 视角：0.8° x 0.8°
+                    line_width: 5,
+                    line_color: 'white', // You can use the HTML color name instead of the HEX color.
+                    show_start_time:  function() {
+                        console.log('十字开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const crossDuration = 100; // 十字呈现时间
+                        const crossEndTime = stimuliStartTime + crossDuration;
+                        console.log('十字结束时间：', crossEndTime);
+                        return crossEndTime;
+                    },
                 },
                 {
                     obj_type: "image",
                     file: function () { return jsPsych.timelineVariable("Image")() },
                     startX: "center", // location of the cross's center in the canvas
-                    startY: -250,//-250
+                    startY: -250,//-250，目前参数肉眼等距
                     scale: 0.5,//图片缩小一倍
                     width: 190,  // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190, // 调整图片大小 视角：3.8° x 3.8°
-                    show_start_time: 1000, // ms after the start of the trial
-                    show_end_time: 1100,//出现50ms
+                    show_start_time:  function() {
+                        console.log('图片开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const imageDuration = 100; // 图片呈现时间
+                        const imageEndTime = stimuliStartTime + imageDuration;
+                        console.log('图片结束时间：', imageEndTime);
+                        return imageEndTime;
+                    },
                     origin_center: true
-                },//上一组end时间减去下一组show时间就是空屏的100ms
+                },
                 {
                     obj_type: 'text',
                     file: function () { return jsPsych.timelineVariable("word") },
                     startX: "center",
-                    startY: 140, //140，
+                    startY: 140, //140，图形和文字距离 与加号等距2度
                     content: function () {
                         return jsPsych.timelineVariable('word', true)();
                     },
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
-                    show_start_time: 1000, // ms after the start of the trial
-                    show_end_time: 1100,//出现50ms
+                    show_start_time:  function() {
+                        console.log('文字开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const textDuration = 100; // 标签呈现时间
+                        const textEndTime = stimuliStartTime + textDuration;
+                        console.log('文字结束时间：', textEndTime);
+                        return textEndTime;
+                    },
                     origin_center: true
                 }
             ],
 
             choices: ['f', 'j'],
-            response_start_time: 1000,//开始作答时间，第二个刺激开始计算
-            trial_duration: 2500,//结束时间，一共作答时间持续1500ms
-            // SOS 改
-            // data: function () { return jsPsych.timelineVariable("identify") },
+            response_start_time: function() {
+                return stimuliStartTime; // 反应开始时间：从刺激呈现就可以反应
+            },
+            trial_duration: function() {
+                const reationDuration = 1500; // 反应时间1500ms
+                const trialEndTime = stimuliStartTime + reationDuration;
+                return trialEndTime;
+            },//一个试次总时长
             on_finish: function (data) {
                 data.correct_response = jsPsych.timelineVariable("identify", true)();
+                // correct是该试次正确情况
                 data.correct = data.correct_response == data.key_press;//0错1对
+                //Image是图片地址
                 data.Image = jsPsych.timelineVariable("Image", true)();
+                // word是试次中出现的标签
                 data.word = jsPsych.timelineVariable('word', true)();
                 data.condition = "matching_task";
+                //shape是该试次的图片含义（自我图形/朋友图形/生人图形）
                 data.shape = jsPsych.timelineVariable("shape", true)();
                 data.association = view_texts_images;
             }
@@ -623,7 +716,7 @@ let matching_task = {
         { Image: function () { return images[2] }, shape: function () { return texts[2] }, word: function () { return texts[2] }, identify: function () { return key_match[0] } },
     ],
     randomize_order: true,
-    repetitions: 6, //6;单个block72个trials,12*6=72
+    repetitions: 6, //6;一个block里的试次数
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -691,7 +784,7 @@ let rest_matching_task = {
 var repeatblock_matching = [
     {
         timeline: [matching_task, feedback_block_matching, rest_matching_task],
-        repetitions: 5//5个blocks
+        repetitions: 5//5
     },
 
 ];
@@ -755,24 +848,31 @@ var instr_stranger = {
 }
 timeline.push(instr_stranger);
 
-//分类任务练习阶段（练习过程鼠标消失，练习结束鼠标出现）
+// 分类任务练习阶段（练习过程鼠标消失，练习结束鼠标出现）
 let prac_stranger = {
     timeline: [
         // 单个试次分类
         {
             type: jsPsychPsychophysics,
             stimuli: [
+                // 注视点：与matching_task完全相同
                 {
-                    obj_type: 'cross',
+                    obj_type: 'cross',// fixation
                     startX: "center", // location of the cross's center in the canvas
                     startY: "center",
-                    line_length: 40,
+                    line_length: 40, // pixels 视角：0.8° x 0.8°
                     line_width: 5,
                     line_color: 'white', // You can use the HTML color name instead of the HEX color.
-                    show_start_time: 500,
-                    // SOS 改
-                    show_end_time: 1000// ms after the start of the trial
+                    show_start_time: 500, // 刺激开始呈现时刻，以试次开始为原点
+                    show_end_time: function() {
+                        const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
+                        const fixationEndTime = 500 + fixationDuration; // 注视点结束时刻，以试次开始为原点
+                        stimuliStartTime = fixationEndTime; // 更新下一个刺激的开始时刻
+                        console.log('分类任务注视点结束时间：', fixationEndTime);
+                        return fixationEndTime;
+                    }
                 },
+                // 图片：与matching_task不同于：startY、imageDuration
                 {
                     obj_type: "image",
                     file: function () { return jsPsych.timelineVariable("Image")() },
@@ -781,10 +881,19 @@ let prac_stranger = {
                     scale: 0.5,//图片缩小一倍
                     width: 190,  // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190, // 调整图片大小 视角：3.8° x 3.8°
-                    show_start_time: 1000, // ms after the start of the trial
-                    show_end_time: 1054,// 2000
+                    show_start_time:  function() {
+                        console.log('图片开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const imageDuration = 54; // 图片呈现时间
+                        const imageEndTime = stimuliStartTime + imageDuration;
+                        console.log('图片结束时间：', imageEndTime);
+                        return imageEndTime;
+                    },
                     origin_center: true
-                },//上一组end时间减去下一组show时间就是空屏的100ms
+                },
+                // 左标签,与image仅变量名不同image-->Llabel
                 {
                     obj_type: 'text',
                     file: function () { return jsPsych.timelineVariable("LeftLable") },
@@ -796,10 +905,19 @@ let prac_stranger = {
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
                     //SOS 改
-                    show_start_time: 1054, // ms after the start of the trial
-                    show_end_time: 2554,//1100
+                    show_start_time:  function() {
+                        console.log('左标签开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const LlabelDuration = 54; // 图片呈现时间
+                        const LlabelEndTime = stimuliStartTime + LlabelDuration;
+                        console.log('左标签结束时间：', LlabelEndTime);
+                        return LlabelEndTime;
+                    },
                     origin_center: true
                 },
+                // 右标签，与坐标签仅变量名不同L-->R
                 {
                     obj_type: 'text',
                     file: function () { return jsPsych.timelineVariable("RightLable") },
@@ -811,17 +929,29 @@ let prac_stranger = {
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
                     // SOS改
-                    show_start_time: 1054, // ms after the start of the trial
-                    show_end_time: 2554,//1100
+                    show_start_time:  function() {
+                        console.log('右标签开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const RlabelDuration = 54; // 图片呈现时间
+                        const RlabelEndTime = stimuliStartTime + RlabelDuration;
+                        console.log('右标签结束时间：', RlabelEndTime);
+                        return RlabelEndTime;
+                    },
                     origin_center: true
                 },
 
             ],
             choices: ['f', 'j'],
-            response_start_time: 1054,//开始作答时间
-            trial_duration: 2554,
-            // SOS改
-            // data: function () { return jsPsych.timelineVariable("identify") },
+            response_start_time: function() {
+                return stimuliStartTime; // 反应开始时间：从刺激呈现就可以反应
+            },
+            trial_duration: function() {
+                const reationDuration = 1500; // 反应时间1500ms
+                const trialEndTime = stimuliStartTime + reationDuration;
+                return trialEndTime;
+            },//一个试次总时长
             on_finish: function (data) {
                 data.condition = "prac_classify_stranger";
                 data.correct_response = jsPsych.timelineVariable("identify", true)();
@@ -941,7 +1071,7 @@ let prac_stranger = {
         }
     ],
     randomize_order: true,
-    repetitions: 4,//；4；练习32个trials.8*4=32
+    repetitions: 4,//；4；32个prac_trial
     on_load: () => {
         $("body").css("cursor", "none");
     },
@@ -1002,7 +1132,7 @@ var if_node_stranger = { //if_node 用于判断是否呈现feedback，feedback_c
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(32);//32,上个练习阶段所有trial
+        ).last(32);//上个练习阶段所有trial
         var correct_trials = trials.filter({
             correct: true
         });
@@ -1070,16 +1200,24 @@ let stranger = {
         {
             type: jsPsychPsychophysics,
             stimuli: [
+                // 注视点：与matching_task完全相同
                 {
-                    obj_type: 'cross',
+                    obj_type: 'cross',// fixation
                     startX: "center", // location of the cross's center in the canvas
                     startY: "center",
-                    line_length: 40,
+                    line_length: 40, // pixels 视角：0.8° x 0.8°
                     line_width: 5,
                     line_color: 'white', // You can use the HTML color name instead of the HEX color.
-                    show_start_time: 500,
-                    show_end_time: 1000// ms after the start of the trial
+                    show_start_time: 500, // 刺激开始呈现时刻，以试次开始为原点
+                    show_end_time: function() {
+                        const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
+                        const fixationEndTime = 500 + fixationDuration; // 注视点结束时刻，以试次开始为原点
+                        stimuliStartTime = fixationEndTime; // 更新下一个刺激的开始时刻
+                        console.log('分类任务注视点结束时间：', fixationEndTime);
+                        return fixationEndTime;
+                    }
                 },
+                // 图片：与matching_task不同于：startY、imageDuration
                 {
                     obj_type: "image",
                     file: function () { return jsPsych.timelineVariable("Image")() },
@@ -1088,10 +1226,19 @@ let stranger = {
                     scale: 0.5,//图片缩小一倍
                     width: 190,  // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190, // 调整图片大小 视角：3.8° x 3.8°
-                    show_start_time: 1000, // ms after the start of the trial
-                    show_end_time: 1054,// 
+                    show_start_time:  function() {
+                        console.log('图片开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const imageDuration = 54; // 图片呈现时间
+                        const imageEndTime = stimuliStartTime + imageDuration;
+                        console.log('图片结束时间：', imageEndTime);
+                        return imageEndTime;
+                    },
                     origin_center: true
-                },//上一组end时间减去下一组show时间就是空屏的100ms
+                },
+                // 左标签,与image仅变量名不同image-->Llabel
                 {
                     obj_type: 'text',
                     file: function () { return jsPsych.timelineVariable("LeftLable") },
@@ -1102,10 +1249,20 @@ let stranger = {
                     },
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
-                    show_start_time: 1054, // ms after the start of the trial
-                    show_end_time: 2554,//1100
+                    //SOS 改
+                    show_start_time:  function() {
+                        console.log('左标签开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const LlabelDuration = 54; // 图片呈现时间
+                        const LlabelEndTime = stimuliStartTime + LlabelDuration;
+                        console.log('左标签结束时间：', LlabelEndTime);
+                        return LlabelEndTime;
+                    },
                     origin_center: true
                 },
+                // 右标签，与坐标签仅变量名不同L-->R
                 {
                     obj_type: 'text',
                     file: function () { return jsPsych.timelineVariable("RightLable") },
@@ -1116,17 +1273,30 @@ let stranger = {
                     },
                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
                     text_color: 'white',
-                    show_start_time: 1054, // ms after the start of the trial
-                    show_end_time: 2554,//1100
+                    // SOS改
+                    show_start_time:  function() {
+                        console.log('右标签开始时间：', stimuliStartTime);
+                        return stimuliStartTime;
+                    },
+                    show_end_time: function() {
+                        const RlabelDuration = 54; // 图片呈现时间
+                        const RlabelEndTime = stimuliStartTime + RlabelDuration;
+                        console.log('右标签结束时间：', RlabelEndTime);
+                        return RlabelEndTime;
+                    },
                     origin_center: true
                 },
 
             ],
             choices: ['f', 'j'],
-            response_start_time: 1054,//开始作答时间
-            trial_duration: 2554,
-            //SOS 改
-            // data: function () { return jsPsych.timelineVariable("identify") },
+            response_start_time: function() {
+                return stimuliStartTime; // 反应开始时间：从刺激呈现就可以反应
+            },
+            trial_duration: function() {
+                const reationDuration = 1500; // 反应时间1500ms
+                const trialEndTime = stimuliStartTime + reationDuration;
+                return trialEndTime;
+            },//一个试次总时长
             on_finish: function (data) {
                 data.condition = "classify_stranger";
                 data.correct_response = jsPsych.timelineVariable("identify", true)();
@@ -1226,7 +1396,7 @@ let stranger = {
         }
     ],
     randomize_order: true,
-    repetitions: 8,//每个block64个trial, 8*8=64
+    repetitions: 8,//8,一个block共64个trial
     on_load: () => {
         $("body").css("cursor", "none");
     },
