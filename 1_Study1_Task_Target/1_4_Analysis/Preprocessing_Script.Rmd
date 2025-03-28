@@ -70,7 +70,7 @@ df <- df_raw %>%
   select(
          -trial_type,
          )%>%
-  # filter(subj_idx == 27)
+  # filter(subj_idx == 99)
   # 1-24为pilot version 1，25-30为pilot version 2
   filter(!(subj_idx %in% 1:24))
 df
