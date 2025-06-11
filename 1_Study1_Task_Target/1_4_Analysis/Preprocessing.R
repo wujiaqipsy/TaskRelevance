@@ -54,10 +54,11 @@ df_raw <- list.files(file.path("../1_3_RawData"), pattern = "exp1_.*\\.csv$") %>
                 RightLable = as.character(RightLable)))%>%
         bind_rows()
 
+# write_excel_csv(df_raw, file = file.path(base_path, "exp1_raw.csv"))
 
 ###################### 数据清洗 ######################
 
-df <- df_raw %>%
+df <- df_raw %>%   # 选择感兴趣的变量，排除不感兴趣的变量
         # 排除预实验数据，1-30为pilot data; 1-24为pilot version 1，25-30为pilot version 2
         filter(!(subj_idx %in% 1:30))%>%
         # 选择变量
@@ -94,9 +95,10 @@ df <- df_raw %>%
         )
 df
 
+
 ###################### 数据描述 ######################
 
-# 正确率低于0.6的被试
+# 正确率低于0.7的被试
 df.excld.sub <-  df %>%
         dplyr::group_by(subj_idx) %>%
         dplyr::summarise(N = length(acc),                    # caculate the overall accuracy for each subject
@@ -114,7 +116,7 @@ df.invalid_trial_rate <- df %>%
 
 # 有效数据框
 df.v <- df %>%
-        dplyr::filter(!(subj_idx %in% df.excld.sub$subj_idx))
+        dplyr::filter(!(subj_idx %in% df.excld.sub$subj_idx))   # 排除正确率低于0.7的被试
 df.v
 
 # 基于有效被试的人口学信息统计
@@ -238,7 +240,6 @@ df.m <- df.v %>%
         dplyr::mutate(
                 matchness = ifelse(word == shape, "match", "mismatch"),
                 ismatch = ifelse(matchness == 'match', 1, 0),
-                ismatch_num = ifelse(matchness == 'match', 0.5, -0.5),
                 saymatch = ifelse((matchness == 'match' & acc == 1) |
                                           (matchness == 'mismatch' & acc == 0), 1, 0),
                 shape = factor(shape, levels = c("自我", "朋友", "生人")),
@@ -257,4 +258,5 @@ df.c <- df.v %>%
         )%>%
         select(subj_idx, gender, year, condition, shape, key_press, acc, rt)
 df.c
+
 

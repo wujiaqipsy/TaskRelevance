@@ -76,6 +76,7 @@ df <- df_raw %>%
 df
 
 ```
+
 ```{r}
 # 被试分类任务的反应时间分布
 df.binary.norm <- df %>% 

@@ -16,206 +16,286 @@ output:
     toc: yes
 ---
 
+# 载入包
 ```{r}
-# 清除当前环境
-rm(list = ls())
+rm(list = ls())   # 清除当前环境
 
-# 设置工作路径
-setwd("C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis")
-```
-
-# 下载和安装需要的R语言程序包
-
-```{r message=FALSE, warning=FALSE}
-# install.packages(c("tidyverse", "BayesFactor", "here"))
-#计算T检验和方差分析的贝叶斯因子
-library(BayesFactor)
-library(tidyverse)
-library(dplyr)
-library(showtext)#解决中文字体无法显示问题
-library(latex2exp)#latex语法
-
-# font_add("song", 
-#          "/System/Library/Fonts/Supplemental/Songti.ttc")
-#从系统增加宋体字，自动检测并载入系统已安装字体
-showtext_auto()
-options(scipen = 9)#将科学计数法改为在万后9位
-set.seed(1234)
-```
-
-## BayesFacotr包版本
-
-```{r}
-packageVersion("BayesFactor")
-```
-
-# 导入数据
-
-```{r message=FALSE}
-# 3*3混合设计，shape为被试内变量，加工优先级condition为被试间变量。一行一个被试
-df.rt <- readr::read_csv('./exp1_classify_3shape_rt.csv')
-
-#类型为character的转换为因子类型，便于后续分析
-df.rt <- df.rt%>%
-  dplyr::mutate_if(is.character, as.factor)
-head(df.rt)
-```
-# （重复测量）方差分析的R语言实现
-
-## 数据的基本信息
-
-```{r}
-# 被试数量
-n <- length(unique(df.rt$subj_idx)) 
-# condition(被试间变量)的水平数
-condition_counts <- nlevels(df.rt$condition)
-# 每个condition内的被试数量
-n_condition <- n/condition_counts
-
-n_condition
-```
-## 检验交互项
-
-生成三个向量用来储存两个主效应和交互项
-
-```{r}
-BFs_priority <- rep(1, length(n_condition))
-
-BFs_shape <- rep(1, length(n_condition))
-
-BFs_int <- rep(1, length(n_condition))
-```
-
-```{r}
-# 获取condition所有水平
-conditions <- levels(df.rt$condition)
-
-# 根据每个condition内的被试数量，迭代选取计算BF的被试数据
-for (i in 1:n_condition) {
-  # 存储迭代的被试
-  selected_subjs <- vector("list", length = length(conditions))
-  
-  # 获取每个condition下所有被试的编号
-  for (j in seq_along(conditions)) {
-    condition_subjs <- df.rt %>%
-      filter(condition == conditions[j]) %>%
-      pull(subj_idx) %>%
-      unique()
-    selected_subjs[[j]] <- condition_subjs[1:i]
-
-  }
-  
-  # 将所有选中的被试编号合并
-  id <- unlist(selected_subjs)
-  
-  # 选择当前迭代的数据
-  df.selected <- df.rt %>% filter(subj_idx %in% id)
-  
-  print(paste('第',i,'次迭代'))
-  print(df.selected)
-  
-  # 将迭代数据框中建模变量转为因子
-  df.selected$subj_idx <- as.factor(df.selected$subj_idx)
-  df.selected$condition <- as.factor(df.selected$condition)
-  df.selected$shape <- as.factor(df.selected$shape)
-
-  # 计算包含固定效应和随机效应的模型的贝叶斯因子
-  bayesfactors <- BayesFactor::generalTestBF(
-    # 包含所有主效应、二阶交互；排除被试与两个主效应的三阶交互，有助于简化模型，加快运行速度
-    rt ~ condition*shape*subj_idx - subj_idx:condition:shape,
-    data = data.frame(df.selected), 
-    # subj_idx为随机效应变量
-    whichRandom = "subj_idx",
-    # 模型中永不排除subj_idx
-    neverExclude = "subj_idx", 
-    # 计算所有可能的模型
-    whichModels = "all", progress = FALSE)
-  
-  # 模型证据强度相互对比
-  null <- bayesfactors[8]# 零模型（仅包括随机效应的模型）
-  full <- bayesfactors[7]#全模型
-  BF_full.n <- full/null#全模型与null对比
-
-  # 模型4是有两个主效应的模型
-  BF_excinx.n <- bayesfactors[4]/null
-  BF_s.n <- bayesfactors[2]/null
-  BF_p.n <- bayesfactors[1]/null
-  BFs_priority[i] <- BF_excinx.n/BF_s.n#计算第i次迭代priority主效应的BF，i指每个条件的被试数
-  BFs_shape[i] <- BF_excinx.n/BF_p.n#计算第i次迭代shape的BF
-  BFs_int[i] <- BF_full.n/BF_excinx.n#计算第i次迭代交互项的BF
+if (!require(pacman)){
+        install.packages("pacman")
+        library(pacman)
 }
+
+## 使用pacman管理R包
+pacman::p_load(
+  'bruceR',
+  'here',         # 选择路径
+  'tidyverse',    # 数据处理
+  'ggplot2',      # 数据可视化
+  'BayesFactor'   # 计算贝叶斯因子
+  )
+
+set.seed(1)   # 随机种子，确保结果可复现
 ```
 
+# 载入预处理后数据
+```{r warning=FALSE}
+df <- bruceR::import(here::here("1_Study1_Task_Target",'1_4_Analysis', 'exp1_classify_rt_jasp.csv'))
+df
+```
+
+# 数据预处理
 ```{r}
-aov_output <- tibble::tibble(BFs_int, BFs_priority, BFs_shape)#整合为数据框
-head(aov_output)#查看数据
+# 宽转长
+df.long <- df %>%
+  tidyr::pivot_longer(
+    cols = c(朋友, 生人, 自我),
+    names_to = "shape",
+    values_to = "rt"
+  ) %>%
+  dplyr::mutate(
+    condition = factor(condition, levels = c("classify_self", "classify_friend", "classify_stranger")),
+    shape = factor(shape, levels = c("自我", "朋友", "生人")),
+    subj_idx = factor(subj_idx)
+  )
+df.long
 ```
 
-## 结果
-
-### 长宽数据、log变换
-
+# 参考JASP源码中用到的函数及参数设定
 ```{r}
-dat_plot <- aov_output %>% dplyr::mutate(n = 1:nrow(.)) %>% 
-  # 转为长数据
-  tidyr::pivot_longer(BFs_int:BFs_shape, names_to = "Effect", 
-               values_to = "Bayes Factor") %>% 
-  # 转为log
-  dplyr::mutate(`logBF` = log(`Bayes Factor`)) %>% 
-  # 将所有浮点数保留2位小数
-  dplyr::mutate(dplyr::across(where(is.double), 
-                              ~round(.x, digits = 2)))
-dat_plot
+# 计算不同模型的BF：
+full_model <- BayesFactor::lmBF(
+  formula = rt ~ condition*shape + subj_idx,
+  data = df.long,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+  rscaleFixed = "medium",
+  rscaleRandom = "medium",
+  rscaleCont = "medium",
+  rscaleEffects = NULL,
+  iterations= 10000
+  )
+
+null_model <- BayesFactor::lmBF(
+  formula = rt ~ 1 + subj_idx,
+  data = df.long,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+)
+
+cond_shape_model <- BayesFactor::lmBF(
+  formula = rt ~ condition+shape + subj_idx,
+  data = df.long,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+  )
+
+condition_model <- BayesFactor::lmBF(
+  formula = rt ~ condition + subj_idx,
+  data = df.long,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+  )
+
+shape_model <- BayesFactor::lmBF(
+  formula = rt ~ shape + subj_idx,
+  data = df.long,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+  )
+
+# full_model / null_model
+
+interaction_bf <- full_model / cond_shape_model
+condition_bf <- condition_model / null_model
+shape_bf <- shape_model / null_model
+print(paste("交互效应的贝叶斯因子为：", format(extractBF(interaction_bf)$bf, scientific = TRUE, digits = 4)))
+print(paste("condition主效应贝叶斯因子为：", format(extractBF(condition_bf)$bf, digits = 4)))
+print(paste("shape主效应贝叶斯因子为：", format(extractBF(shape_bf)$bf, digits = 4)))
 ```
 
-```{r fig.height=7, fig.width=7, out.width="50%", warning=FALSE}
-dat_plot %>% dplyr::filter(Effect == "BFs_int") %>% 
-  ggplot(aes(x = n, y = logBF)) + 
-  geom_point(size = 3) + 
-  geom_line() + 
-  # 虚线画出BF=10以及BF=1的位置
-  geom_hline(aes(yintercept = log(1)), linetype = "dashed")+
-  geom_hline(aes(yintercept = log(10)), linetype = "dashed")+
-  labs(y = TeX("$\\log(BF_{10}) $")) + 
-  ggtitle("交互作用的贝叶斯因子数值变化趋势") + 
-  scale_y_continuous(
-    limits = c(0, 25),
-    breaks = c(0, round(log(10), 1), 
-               # 计算 100 的自然对数，并将结果四舍五入到小数点后一位
-               round(log(100), 1), 
-               round(log(1000), 1), 
-               round(log(10000), 1), 
-               round(log(100000), 1),
-               round(log(1000000), 1),
-               round(log(10000000), 1),
-               round(log(100000000), 1),
-               round(log(100000000), 1),
-               round(log(1000000000), 1),
-               round(log(1000000000), 1),
-               round(log(10000000000), 1)
-               )
-    ) + 
-   theme(
-    panel.background = element_blank(),
-    plot.margin = unit(c(1, 1, 1, 1), "cm"),
-    plot.background = element_rect(fill = "white", color = NA),
-    plot.title = element_text(size = 22, 
-                              family = "song",
-                              face = "bold",
-                              hjust = 0.5,
-                              margin = margin(b = 15)),
-    axis.line = element_line(color = "black", size = .5),
-    axis.title = element_text(size = 18, color = "black",
-                              face = "bold"),
-    axis.text = element_text(size = 15, color = "black"),
-    axis.text.x = element_text(margin = margin(t = 10)),
-    axis.title.y = element_text(margin = margin(r = 10)),
-    axis.ticks = element_line(size = .5),
-    panel.grid = element_blank(),
-    legend.position = c(0.20, 0.8),
-    legend.background = element_rect(color = "black"),
-    legend.text = element_text(size = 15),
-    legend.margin = margin(t = 5, l = 5, r = 5, b = 5),
-    legend.key = element_rect(color = NA, fill = NA))
-# ggsave("RT_inx.png", width = 10, height = 7, dpi = 300)
-```
+<!-- # 参考元瑞论文的尝试 -->
+<!-- ```{r message=FALSE, warning=FALSE} -->
+<!-- # install.packages(c("tidyverse", "BayesFactor", "here")) -->
+<!-- #计算T检验和方差分析的贝叶斯因子 -->
+<!-- library(BayesFactor) -->
+<!-- library(tidyverse) -->
+<!-- library(dplyr) -->
+<!-- library(showtext)#解决中文字体无法显示问题 -->
+<!-- library(latex2exp)#latex语法 -->
+
+<!-- # font_add("song",  -->
+<!-- #          "/System/Library/Fonts/Supplemental/Songti.ttc") -->
+<!-- #从系统增加宋体字，自动检测并载入系统已安装字体 -->
+<!-- showtext_auto() -->
+<!-- options(scipen = 9)#将科学计数法改为在万后9位 -->
+<!-- set.seed(1234) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- packageVersion("BayesFactor") -->
+<!-- ``` -->
+
+<!-- ```{r message=FALSE} -->
+<!-- # 3*3混合设计，shape为被试内变量，加工优先级condition为被试间变量。一行一个被试 -->
+<!-- df.rt <- readr::read_csv('./exp1_classify_3shape_rt.csv') -->
+
+<!-- #类型为character的转换为因子类型，便于后续分析 -->
+<!-- df.rt <- df.rt%>% -->
+<!--   dplyr::mutate_if(is.character, as.factor) -->
+<!-- head(df.rt) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # 被试数量 -->
+<!-- n <- length(unique(df.rt$subj_idx))  -->
+<!-- # condition(被试间变量)的水平数 -->
+<!-- condition_counts <- nlevels(df.rt$condition) -->
+<!-- # 每个condition内的被试数量 -->
+<!-- n_condition <- n/condition_counts -->
+
+<!-- n_condition -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # 生成三个向量用来储存两个主效应和交互项 -->
+<!-- BFs_priority <- rep(1, length(n_condition)) -->
+
+<!-- BFs_shape <- rep(1, length(n_condition)) -->
+
+<!-- BFs_int <- rep(1, length(n_condition)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # 获取condition所有水平 -->
+<!-- conditions <- levels(df.rt$condition) -->
+
+<!-- # 根据每个condition内的被试数量，迭代选取计算BF的被试数据 -->
+<!-- for (i in 1:n_condition) { -->
+<!--   # 存储迭代的被试 -->
+<!--   selected_subjs <- vector("list", length = length(conditions)) -->
+
+<!--   # 获取每个condition下所有被试的编号 -->
+<!--   for (j in seq_along(conditions)) { -->
+<!--     condition_subjs <- df.rt %>% -->
+<!--       filter(condition == conditions[j]) %>% -->
+<!--       pull(subj_idx) %>% -->
+<!--       unique() -->
+<!--     selected_subjs[[j]] <- condition_subjs[1:i] -->
+
+<!--   } -->
+
+<!--   # 将所有选中的被试编号合并 -->
+<!--   id <- unlist(selected_subjs) -->
+
+<!--   # 选择当前迭代的数据 -->
+<!--   df.selected <- df.rt %>% filter(subj_idx %in% id) -->
+
+<!--   print(paste('第',i,'次迭代')) -->
+<!--   print(df.selected) -->
+
+<!--   # 将迭代数据框中建模变量转为因子 -->
+<!--   df.selected$subj_idx <- as.factor(df.selected$subj_idx) -->
+<!--   df.selected$condition <- as.factor(df.selected$condition) -->
+<!--   df.selected$shape <- as.factor(df.selected$shape) -->
+
+<!--   # 计算包含固定效应和随机效应的模型的贝叶斯因子 -->
+<!--   bayesfactors <- BayesFactor::generalTestBF( -->
+<!--     # 包含所有主效应、二阶交互；排除被试与两个主效应的三阶交互，有助于简化模型，加快运行速度 -->
+<!--     rt ~ condition*shape*subj_idx - subj_idx:condition:shape, -->
+<!--     data = data.frame(df.selected),  -->
+<!--     # subj_idx为随机效应变量 -->
+<!--     whichRandom = "subj_idx", -->
+<!--     # 模型中永不排除subj_idx -->
+<!--     neverExclude = "subj_idx",  -->
+<!--     # 计算所有可能的模型 -->
+<!--     whichModels = "all", progress = FALSE) -->
+
+<!--   # 模型证据强度相互对比 -->
+<!--   null <- bayesfactors[8]# 零模型（仅包括随机效应的模型） -->
+<!--   full <- bayesfactors[7]#全模型 -->
+<!--   BF_full.n <- full/null#全模型与null对比 -->
+
+<!--   # 模型4是有两个主效应的模型 -->
+<!--   BF_excinx.n <- bayesfactors[4]/null -->
+<!--   BF_s.n <- bayesfactors[2]/null -->
+<!--   BF_p.n <- bayesfactors[1]/null -->
+<!--   BFs_priority[i] <- BF_excinx.n/BF_s.n#计算第i次迭代priority主效应的BF，i指每个条件的被试数 -->
+<!--   BFs_shape[i] <- BF_excinx.n/BF_p.n#计算第i次迭代shape的BF -->
+<!--   BFs_int[i] <- BF_full.n/BF_excinx.n#计算第i次迭代交互项的BF -->
+<!-- } -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- aov_output <- tibble::tibble(BFs_int, BFs_priority, BFs_shape)#整合为数据框 -->
+<!-- head(aov_output)#查看数据 -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- dat_plot <- aov_output %>% dplyr::mutate(n = 1:nrow(.)) %>%  -->
+<!--   # 转为长数据 -->
+<!--   tidyr::pivot_longer(BFs_int:BFs_shape, names_to = "Effect",  -->
+<!--                values_to = "Bayes Factor") %>%  -->
+<!--   # 转为log -->
+<!--   dplyr::mutate(`logBF` = log(`Bayes Factor`)) %>%  -->
+<!--   # 将所有浮点数保留2位小数 -->
+<!--   dplyr::mutate(dplyr::across(where(is.double),  -->
+<!--                               ~round(.x, digits = 2))) -->
+<!-- dat_plot -->
+<!-- ``` -->
+
+<!-- ```{r fig.height=7, fig.width=7, out.width="50%", warning=FALSE} -->
+<!-- dat_plot %>% dplyr::filter(Effect == "BFs_int") %>%  -->
+<!--   ggplot(aes(x = n, y = logBF)) +  -->
+<!--   geom_point(size = 3) +  -->
+<!--   geom_line() +  -->
+<!--   # 虚线画出BF=10以及BF=1的位置 -->
+<!--   geom_hline(aes(yintercept = log(1)), linetype = "dashed")+ -->
+<!--   geom_hline(aes(yintercept = log(10)), linetype = "dashed")+ -->
+<!--   labs(y = TeX("$\\log(BF_{10}) $")) +  -->
+<!--   ggtitle("交互作用的贝叶斯因子数值变化趋势") +  -->
+<!--   scale_y_continuous( -->
+<!--     limits = c(0, 25), -->
+<!--     breaks = c(0, round(log(10), 1),  -->
+<!--                # 计算 100 的自然对数，并将结果四舍五入到小数点后一位 -->
+<!--                round(log(100), 1),  -->
+<!--                round(log(1000), 1),  -->
+<!--                round(log(10000), 1),  -->
+<!--                round(log(100000), 1), -->
+<!--                round(log(1000000), 1), -->
+<!--                round(log(10000000), 1), -->
+<!--                round(log(100000000), 1), -->
+<!--                round(log(100000000), 1), -->
+<!--                round(log(1000000000), 1), -->
+<!--                round(log(1000000000), 1), -->
+<!--                round(log(10000000000), 1) -->
+<!--                ) -->
+<!--     ) +  -->
+<!--    theme( -->
+<!--     panel.background = element_blank(), -->
+<!--     plot.margin = unit(c(1, 1, 1, 1), "cm"), -->
+<!--     plot.background = element_rect(fill = "white", color = NA), -->
+<!--     plot.title = element_text(size = 22,  -->
+<!--                               family = "song", -->
+<!--                               face = "bold", -->
+<!--                               hjust = 0.5, -->
+<!--                               margin = margin(b = 15)), -->
+<!--     axis.line = element_line(color = "black", size = .5), -->
+<!--     axis.title = element_text(size = 18, color = "black", -->
+<!--                               face = "bold"), -->
+<!--     axis.text = element_text(size = 15, color = "black"), -->
+<!--     axis.text.x = element_text(margin = margin(t = 10)), -->
+<!--     axis.title.y = element_text(margin = margin(r = 10)), -->
+<!--     axis.ticks = element_line(size = .5), -->
+<!--     panel.grid = element_blank(), -->
+<!--     legend.position = c(0.20, 0.8), -->
+<!--     legend.background = element_rect(color = "black"), -->
+<!--     legend.text = element_text(size = 15), -->
+<!--     legend.margin = margin(t = 5, l = 5, r = 5, b = 5), -->
+<!--     legend.key = element_rect(color = NA, fill = NA)) -->
+<!-- # ggsave("RT_inx.png", width = 10, height = 7, dpi = 300) -->
+<!-- ``` -->
