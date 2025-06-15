@@ -352,7 +352,7 @@ var Tr_instr = {
             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
         });
         return [`<p class='header' style = 'font-size: 35px'>实验说明：</p>
-            <p style='color:white; font-size: 35px;line-height: 30px;'>您好,欢迎参加本实验。本次实验大约需要55分钟完成。</p>
+            <p style='color:white; font-size: 35px;line-height: 30px;'>您好,欢迎参加本实验。本次实验大约需要45分钟完成。</p>
             <p style='color:white; font-size: 35px;'>您需要完成两个任务：图形-标签匹配任务、颜色匹配任务。</p>
             <p style='color:white; font-size: 35px;'>在任务开始前，您将学习图形与标签的匹配关系。</p>`,
             start + `<div class="box">${tmpI}</div>`,

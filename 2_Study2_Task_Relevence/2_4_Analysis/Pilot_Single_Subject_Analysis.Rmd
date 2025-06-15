@@ -100,7 +100,7 @@ head(df.check)
 ```{r}
 # 被试分类任务的反应时间分布
 df.norm <- df %>% 
-  # filter(subj_idx == 26)%>%
+  # filter(subj_idx == 1)%>%
   # filter(condition != "matching_task") %>%
   group_by(subj_idx, condition, shapes, ismatch) %>%
   drop_na(rt) %>%
@@ -118,7 +118,7 @@ ggplot(df.norm, aes(x=rt, y=density, color=shapes)) +
   geom_line() +
   geom_point() +
   theme_minimal() +
-  facet_wrap(~subj_idx+condition+ismatch) +
+  facet_wrap(~subj_idx+condition+ismatch, ncol = 4) +
   theme(
     legend.position = "right",
     panel.grid.major = element_blank(),
