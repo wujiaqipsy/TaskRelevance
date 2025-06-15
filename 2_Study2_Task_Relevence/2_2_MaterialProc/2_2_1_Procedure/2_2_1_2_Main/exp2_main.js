@@ -399,8 +399,8 @@ var TR_prac = {
                     obj_type: "image",   // colored_shapes
                     file: function () { return jsPsych.timelineVariable("pres_stml")() },
                     startX: "center",
-                    startY: -200,   // 肉眼等距
-                    scale: 0.7,   // 图片缩小0.7倍
+                    startY: -220,   // 肉眼等距
+                    // scale: 0.8,   // 图片缩小0.7倍
                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     show_start_time: 1000,
@@ -411,7 +411,7 @@ var TR_prac = {
                     obj_type: 'text',
                     file: function () { return jsPsych.timelineVariable("pres_label")() },
                     startX: "center",
-                    startY: 140, //140，图形和文字距离 与加号等距2度
+                    startY: 120, //140，图形和文字距离 与加号等距2度
                     content: function () {
                         return jsPsych.timelineVariable('pres_label', true)();
                     },
@@ -668,8 +668,8 @@ var TR_main = {
                     obj_type: "image",   // colored_shapes
                     file: function () { return jsPsych.timelineVariable("pres_stml")() },
                     startX: "center",
-                    startY: -200,   // 肉眼等距
-                    scale: 0.7,   // 图片缩小0.7倍
+                    startY: -220,   // 肉眼等距
+                    // scale: 0.8,   // 图片缩小0.7倍
                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     show_start_time: 1000,
@@ -680,7 +680,7 @@ var TR_main = {
                     obj_type: 'text',
                     file: function () { return jsPsych.timelineVariable("pres_label")() },
                     startX: "center",
-                    startY: 140, //140，图形和文字距离 与加号等距2度
+                    startY: 120, //140，图形和文字距离 与加号等距2度
                     content: function () {
                         return jsPsych.timelineVariable('pres_label', true)();
                     },
@@ -819,7 +819,7 @@ let TR_main_block_feedback = {
     }
 };
 // 休息指导语
-let TR_resid_block_numb = 4;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
+let TR_resid_block_numb = 3;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
 let TR_main_rest = {
     type: jsPsychHtmlButtonResponse,
     stimulus: function () {
@@ -855,7 +855,7 @@ let TR_main_rest = {
 var TR_main_repeatblock = [
     {
         timeline: [TR_main, TR_main_block_feedback, TR_main_rest],
-        repetitions: 5//5
+        repetitions: 4//5
     },
 ];
 timeline.push({
@@ -922,7 +922,7 @@ var TIR_prac = {
                     file: function () { return jsPsych.timelineVariable("pres_stml") },
                     startX: "center",
                     startY: "center",
-                    scale: 0.7,   // 图片缩小0.7倍
+                    // scale: 0.8,   // 图片缩小0.7倍
                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     show_start_time: 1000,
@@ -1127,7 +1127,7 @@ var TIR_main = {
                     file: function () { return jsPsych.timelineVariable("pres_stml") },
                     startX: "center",
                     startY: "center",
-                    scale: 0.7,   // 图片缩小0.7倍
+                    // scale: 0.8,   // 图片缩小0.7倍
                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     show_start_time: 1000,
@@ -1213,7 +1213,7 @@ let TIR_main_block_feedback = {
     }
 };
 // 休息指导语
-let TIR_resid_block_numb = 4;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
+let TIR_resid_block_numb = 3;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
 let TIR_main_rest = {
     type: jsPsychHtmlButtonResponse,
     stimulus: function () {
@@ -1248,7 +1248,7 @@ let TIR_main_rest = {
 var TIR_main_repeatblock = [
     {
         timeline: [TIR_main, TIR_main_block_feedback, TIR_main_rest],
-        repetitions: 5//5
+        repetitions: 4//5
     },
 ];
 timeline.push({

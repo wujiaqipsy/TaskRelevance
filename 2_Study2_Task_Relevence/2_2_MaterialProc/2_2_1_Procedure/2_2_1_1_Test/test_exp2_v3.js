@@ -379,246 +379,246 @@ const { pres_colors, pres_labels, paired_labels, paired_colors, TIR_timeline_var
 // timeline.push(Tr_instr);
 
 
-// // 任务有关条件：练习阶段（呈现带颜色的图形+标签，进行图形标签匹配任务）
-// var TR_prac = {
-//     timeline: [
-//         {   // 单个试次
-//             type: jsPsychPsychophysics,
-//             stimuli: [
-//                 {
-//                     obj_type: 'cross',   // 注视点
-//                     startX: "center",
-//                     startY: "center",
-//                     line_length: 40, // pixels 视角：0.8° x 0.8°
-//                     line_width: 5,
-//                     line_color: 'white',
-//                     show_start_time: 500,
-//                     show_end_time: 2500   // 1100
-//                 },
-//                 {
-//                     obj_type: "image",   // colored_shapes
-//                     file: function () { return jsPsych.timelineVariable("pres_stml")() },
-//                     startX: "center",
-//                     startY: -200,   // 肉眼等距
-//                     scale: 0.7,   // 图片缩小0.7倍
-//                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     show_start_time: 1000,
-//                     show_end_time: 2500,   // 1100
-//                     origin_center: true
-//                 },
-//                 {
-//                     obj_type: 'text',
-//                     file: function () { return jsPsych.timelineVariable("pres_label")() },
-//                     startX: "center",
-//                     startY: 140, //140，图形和文字距离 与加号等距2度
-//                     content: function () {
-//                         return jsPsych.timelineVariable('pres_label', true)();
-//                     },
-//                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
-//                     text_color: 'white',
-//                     show_start_time: 1000,
-//                     show_end_time: 2500,   // 1100
-//                     origin_center: true
-//                 }
-//             ],
+// 任务有关条件：练习阶段（呈现带颜色的图形+标签，进行图形标签匹配任务）
+var TR_prac = {
+    timeline: [
+        {   // 单个试次
+            type: jsPsychPsychophysics,
+            stimuli: [
+                {
+                    obj_type: 'cross',   // 注视点
+                    startX: "center",
+                    startY: "center",
+                    line_length: 40, // pixels 视角：0.8° x 0.8°
+                    line_width: 5,
+                    line_color: 'white',
+                    show_start_time: 500,
+                    show_end_time: 2500   // 1100
+                },
+                {
+                    obj_type: "image",   // colored_shapes
+                    file: function () { return jsPsych.timelineVariable("pres_stml")() },
+                    startX: "center",
+                    startY: -200,   // 肉眼等距
+                    scale: 0.80,   // 图片缩小0.7倍
+                    width: 190,   // 调整图片大小 视角：3.8° x 3.8°
+                    heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
+                    show_start_time: 1000,
+                    show_end_time: 25000,   // 1100
+                    origin_center: true
+                },
+                {
+                    obj_type: 'text',
+                    file: function () { return jsPsych.timelineVariable("pres_label")() },
+                    startX: "center",
+                    startY: 120, //140，图形和文字距离 与加号等距2度
+                    content: function () {
+                        return jsPsych.timelineVariable('pres_label', true)();
+                    },
+                    font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
+                    text_color: 'white',
+                    show_start_time: 1000,
+                    show_end_time: 25000,   // 1100
+                    origin_center: true
+                }
+            ],
 
-//             choices: ['f', 'j'],
-//             response_start_time: 1000,
-//             trial_duration: 2500,
-//             on_start: function () {
-//                 console.log('呈现的标签：', jsPsych.timelineVariable('pres_label', true)());
-//                 console.log('图形-标签对：', ShapeColorMap);
-//                 console.log('图形配对的标签：', jsPsych.timelineVariable("paired_label", true)());
-//                 console.log('正确的按键：', jsPsych.timelineVariable("identify", true)());
-//             },
-//             on_finish: function (data) {
-//                 data.correct_response = jsPsych.timelineVariable("identify", true)();   // 正确按键
-//                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
-//                 data.labels = jsPsych.timelineVariable('pres_label', true)();   // 呈现的标签
-//                 data.shapes = jsPsych.timelineVariable("paired_label", true)();   // 图形配对的标签
-//                 data.pres_colors = jsPsych.timelineVariable("pres_color", true)();   // 呈现的颜色
-//                 data.paired_colors = jsPsych.timelineVariable("paired_color", true)();   // 配对的颜色
-//                 data.ismatch = data.labels == data.shapes;   // 图形与标签是否匹配
-//                 data.condition = "TR_prac";   // 标记为练习阶段
-//                 data.subj_idx = id
-//             }
-//         },
-//         {   // 每个试次后反馈
-//             type: jsPsychHtmlKeyboardResponse,
-//             stimulus: function () {
-//                 let keypress = jsPsych.data.get().last(1).values()[0].key_press; // 被试按键
-//                 let time = jsPsych.data.get().last(1).values()[0].rt;
-//                 let trial_correct_response = jsPsych.data.get().last(1).values()[0].correct_response;//该trial正确的按键
-//                 if (time > 1500 || time === null) { //大于1500或为null为过慢
-//                     return "<span class='add_' style='color:yellow; font-size: 70px;'> 太慢! </span>"
-//                 } else if (time < 200) { //小于两百为过快反应
-//                     return "<span style='color:yellow; font-size: 70px;'>过快! </span>"
-//                 } else {
-//                     if (keypress == trial_correct_response) { //如果按键 == 正确按键
-//                         return "<span style='color:GreenYellow; font-size: 70px;'>正确! </span>"
-//                     }
-//                     else {
-//                         return "<span style='color:red; font-size: 70px;'>错误! </span>"
-//                     }
-//                 }
-//             },
+            choices: ['f', 'j'],
+            response_start_time: 1000,
+            trial_duration: 2500,
+            on_start: function () {
+                console.log('呈现的标签：', jsPsych.timelineVariable('pres_label', true)());
+                console.log('图形-标签对：', ShapeColorMap);
+                console.log('图形配对的标签：', jsPsych.timelineVariable("paired_label", true)());
+                console.log('正确的按键：', jsPsych.timelineVariable("identify", true)());
+            },
+            on_finish: function (data) {
+                data.correct_response = jsPsych.timelineVariable("identify", true)();   // 正确按键
+                data.correct = data.correct_response == data.key_press;   // 按键正确与否
+                data.labels = jsPsych.timelineVariable('pres_label', true)();   // 呈现的标签
+                data.shapes = jsPsych.timelineVariable("paired_label", true)();   // 图形配对的标签
+                data.pres_colors = jsPsych.timelineVariable("pres_color", true)();   // 呈现的颜色
+                data.paired_colors = jsPsych.timelineVariable("paired_color", true)();   // 配对的颜色
+                data.ismatch = data.labels == data.shapes;   // 图形与标签是否匹配
+                data.condition = "TR_prac";   // 标记为练习阶段
+                data.subj_idx = id
+            }
+        },
+        {   // 每个试次后反馈
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: function () {
+                let keypress = jsPsych.data.get().last(1).values()[0].key_press; // 被试按键
+                let time = jsPsych.data.get().last(1).values()[0].rt;
+                let trial_correct_response = jsPsych.data.get().last(1).values()[0].correct_response;//该trial正确的按键
+                if (time > 1500 || time === null) { //大于1500或为null为过慢
+                    return "<span class='add_' style='color:yellow; font-size: 70px;'> 太慢! </span>"
+                } else if (time < 200) { //小于两百为过快反应
+                    return "<span style='color:yellow; font-size: 70px;'>过快! </span>"
+                } else {
+                    if (keypress == trial_correct_response) { //如果按键 == 正确按键
+                        return "<span style='color:GreenYellow; font-size: 70px;'>正确! </span>"
+                    }
+                    else {
+                        return "<span style='color:red; font-size: 70px;'>错误! </span>"
+                    }
+                }
+            },
 
-//             choices: "NO_KEYS",
-//             trial_duration: 300,
-//             data: {
-//                 screen_id: "feedback_test"
-//             },
-//         }
-//     ],
-//     timeline_variables: [
-//         // 36个试次
-//         // colShapes用于试次呈现；shape用于数据存储图形的身份（自我/朋友/生人）；color用于数据存储图形的颜色；labels用于试次呈现的标签；identify用于试次正确按键
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][0] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][0] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][1] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][2] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[1] } },
+            choices: "NO_KEYS",
+            trial_duration: 300,
+            data: {
+                screen_id: "feedback_test"
+            },
+        }
+    ],
+    timeline_variables: [
+        // 36个试次
+        // colShapes用于试次呈现；shape用于数据存储图形的身份（自我/朋友/生人）；color用于数据存储图形的颜色；labels用于试次呈现的标签；identify用于试次正确按键
+        { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][0] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][0] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][1] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][2] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[1] } },
 
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][0] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][0] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][1] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][2] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][0] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][0] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][1] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][2] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[1] } },
 
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][0] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][0] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][1] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][2] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][0] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][0] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][1] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][2] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[1] } },
 
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][0] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][0] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][1] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][2] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][0] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][0] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][1] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][2] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[1] } },
 
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][0] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][0] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][1] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][2] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][0] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][0] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][1] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][2] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[1] } },
 
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][0] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][0] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][1] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][2] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][0] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][0] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][1] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][2] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[1] } },
 
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][0] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][0] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][1] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][2] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][0] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][0] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][1] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][2] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[1] } },
 
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][0] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][0] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][1] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][2] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][0] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][0] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][1] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][2] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[1] } },
 
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][0] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][0] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][1] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][2] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[1] } },
-//     ],
-//     randomize_order: true,   //6
-//     repetitions: 1,   // 练习重复1次，练习试次36个
-//     on_load: () => {
-//         $("body").css("cursor", "none");
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "default");
-//     }
-// }
-// // 整个练习block反馈
-// var TR_prac_feedback = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: function () {
-//         let trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36); //获取练习阶段所有trial数;需要修改
-//         let correct_trials = trials.filter({
-//             correct: true   // 获取正确的试次
-//         });
-//         let accuracy = Math.round(correct_trials.count() / trials.count() * 100);   //计算正确率
-//         console.log('练习试次数', trials.count())
-//         let rt = Math.round(correct_trials.select('rt').mean());   // 计算平均反应时
-//         return `
-//     <style>
-//         .context { color: white; font-size: 35px; line-height: 40px; }
-//     </style>
-//     <div>
-//         <p class='context'>您正确回答了 ${accuracy}% 的试次。</p>
-//         <p class='context'>您的平均反应时为 ${rt} 毫秒。</p>
-//         <p class='context'>按任意键进入下一页</p>
-//     </div>
-// `;
-//     }
-// }
-// // 任务相关：再次练习指导语
-// var TR_reprac_instr = { //在这里呈现文字回顾，让被试再记一下
-//     type: jsPsychInstructions,
-//     pages: function () {
-//         let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记住下列图形-标签的对应关系，并再次进行练习。</p>",
-//             middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-//             end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：请按 继续 进入练习</p><div>";
-//         let tmpI = "";
-//         view_shape_label.forEach(v => {   // 任务相关条件记忆shape-label
-//             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-//         });
-//         return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
-//             start + `<div class="box">${tmpI}</div>`,
-//             `<p class='footer' style='font-size:35px; line-height:30px;'>您的任务是判断图形与标签是否匹配，</p>
-//       <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">匹配</span>，请按键盘 <span style="color: lightgreen;">${key[0]}键</span></p>
-//       <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">不匹配</span>，请按键盘<span style="color: lightgreen;"> ${key[1]}键</p>
-//       </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
-//             middle + end];
-//     },
-//     show_clickable_nav: true,
-//     button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
-//     button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
-//     on_finish: function () {
-//         $("body").css("cursor", "none");
-//     },
-//     on_load: () => {
-//         $("body").css("cursor", "default");
-//     }
-// }
-// // 任务相关：判断是否需要再次练习
-// var TR_if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，instruction_repractice
-//     timeline: [TR_prac_feedback, TR_reprac_instr],
-//     conditional_function: function (data) {
-//         var trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36);   // 需要修改
-//         var correct_trials = trials.filter({
-//             correct: true
-//         });
-//         var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         if (accuracy >= acc) {   // 比较练习阶段ACC与70%的大小
-//             return false;   //达标则跳过timeline,进入正式实验
-//         } else if (accuracy < acc) { //没达标则进行timeline
-//             return true;
-//         }
-//     }
-// }
-// // 任务相关：循环练习阶段
-// var TR_loop_node = {
-//     timeline: [TR_prac, TR_if_node],
-//     loop_function: function () {
-//         var trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36);   //需要修改
-//         var correct_trials = trials.filter({
-//             correct: true
-//         });
-//         var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         if (accuracy >= acc) {
-//             return false;   // 正确率达标，不循环，执行一次timeline
-//         } else if (accuracy < acc) {    // 不达标，repeat，再执行一次timeline
-//             return true;
-//         }
-//     }
-// }
-// timeline.push(TR_loop_node);
+        { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][0] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][0] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[0] } },
+        { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][1] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[1] } },
+        { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][2] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[1] } },
+    ],
+    randomize_order: true,   //6
+    repetitions: 1,   // 练习重复1次，练习试次36个
+    on_load: () => {
+        $("body").css("cursor", "none");
+    },
+    on_finish: function () {
+        $("body").css("cursor", "default");
+    }
+}
+// 整个练习block反馈
+var TR_prac_feedback = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+        let trials = jsPsych.data.get().filter(
+            [{ correct: true }, { correct: false }]
+        ).last(36); //获取练习阶段所有trial数;需要修改
+        let correct_trials = trials.filter({
+            correct: true   // 获取正确的试次
+        });
+        let accuracy = Math.round(correct_trials.count() / trials.count() * 100);   //计算正确率
+        console.log('练习试次数', trials.count())
+        let rt = Math.round(correct_trials.select('rt').mean());   // 计算平均反应时
+        return `
+    <style>
+        .context { color: white; font-size: 35px; line-height: 40px; }
+    </style>
+    <div>
+        <p class='context'>您正确回答了 ${accuracy}% 的试次。</p>
+        <p class='context'>您的平均反应时为 ${rt} 毫秒。</p>
+        <p class='context'>按任意键进入下一页</p>
+    </div>
+`;
+    }
+}
+// 任务相关：再次练习指导语
+var TR_reprac_instr = { //在这里呈现文字回顾，让被试再记一下
+    type: jsPsychInstructions,
+    pages: function () {
+        let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记住下列图形-标签的对应关系，并再次进行练习。</p>",
+            middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
+            end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：请按 继续 进入练习</p><div>";
+        let tmpI = "";
+        view_shape_label.forEach(v => {   // 任务相关条件记忆shape-label
+            tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+        });
+        return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
+            start + `<div class="box">${tmpI}</div>`,
+            `<p class='footer' style='font-size:35px; line-height:30px;'>您的任务是判断图形与标签是否匹配，</p>
+      <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">匹配</span>，请按键盘 <span style="color: lightgreen;">${key[0]}键</span></p>
+      <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">不匹配</span>，请按键盘<span style="color: lightgreen;"> ${key[1]}键</p>
+      </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
+            middle + end];
+    },
+    show_clickable_nav: true,
+    button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
+    button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
+    on_finish: function () {
+        $("body").css("cursor", "none");
+    },
+    on_load: () => {
+        $("body").css("cursor", "default");
+    }
+}
+// 任务相关：判断是否需要再次练习
+var TR_if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，instruction_repractice
+    timeline: [TR_prac_feedback, TR_reprac_instr],
+    conditional_function: function (data) {
+        var trials = jsPsych.data.get().filter(
+            [{ correct: true }, { correct: false }]
+        ).last(36);   // 需要修改
+        var correct_trials = trials.filter({
+            correct: true
+        });
+        var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+        if (accuracy >= acc) {   // 比较练习阶段ACC与70%的大小
+            return false;   //达标则跳过timeline,进入正式实验
+        } else if (accuracy < acc) { //没达标则进行timeline
+            return true;
+        }
+    }
+}
+// 任务相关：循环练习阶段
+var TR_loop_node = {
+    timeline: [TR_prac, TR_if_node],
+    loop_function: function () {
+        var trials = jsPsych.data.get().filter(
+            [{ correct: true }, { correct: false }]
+        ).last(36);   //需要修改
+        var correct_trials = trials.filter({
+            correct: true
+        });
+        var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+        if (accuracy >= acc) {
+            return false;   // 正确率达标，不循环，执行一次timeline
+        } else if (accuracy < acc) {    // 不达标，repeat，再执行一次timeline
+            return true;
+        }
+    }
+}
+timeline.push(TR_loop_node);
 
 
 // // 任务有关条件：进入正式实验指导语
