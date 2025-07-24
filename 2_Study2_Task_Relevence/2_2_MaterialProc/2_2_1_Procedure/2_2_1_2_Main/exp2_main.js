@@ -363,7 +363,7 @@ var Tr_instr = {
             `<p style='color:white; font-size: 35px; line-height: 30px;'>接下来，您将进入图形-标签匹配任务的练习部分</p>
       <p class='footer' style='color:lightgreen; font-size: 35px;'>请您又快又准地进行按键。</p>
       <p style='color:white; font-size: 35px; line-height: 30px;'>通过练习后,您将进入正式实验。</p>
-      <p class='footer' style='color:white; font-size: 35px;'>正式实验分为5组,每组完成后会有休息时间。</p></span>`,
+      <p class='footer' style='color:white; font-size: 35px;'>正式实验分为4组,每组完成后会有休息时间。</p></span>`,
             middle + end];
     },
     show_clickable_nav: true,
@@ -890,7 +890,7 @@ var TIR_instr = {
             `<p style='color:white; font-size: 35px; line-height: 30px;'>接下来，您将进入颜色匹配任务的练习部分</p>
       <p class='footer' style='color:lightgreen; font-size: 35px;'>请您又快又准地进行按键。</p>
       <p style='color:white; font-size: 35px; line-height: 30px;'>通过练习后,您将进入正式实验。</p>
-      <p class='footer' style='color:white; font-size: 35px;'>正式实验分为5组,每组完成后会有休息时间。</p></span>`,
+      <p class='footer' style='color:white; font-size: 35px;'>正式实验分为4组,每组完成后会有休息时间。</p></span>`,
             middle + end];
     },
     show_clickable_nav: true,

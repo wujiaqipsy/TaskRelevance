@@ -13,23 +13,13 @@ setwd("C:/1_Postgraduate/TaskRelevance/1_Study1_Task_Target/1_4_Analysis")   # �
 curDir = getwd()   # 获取当前工作路径
 figDir = file.path(curDir, 'figures')   # 设置图片存储地址
 
-<<<<<<< HEAD
-=======
-set.seed(42)   # 随机种子，确保结果可复现
-knitr::opts_chunk$set(cache.extra = knitr::rand_seed)   # 设置缓存，若随机数未变化则不重复运行已运行的代码块
-
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
-
 # 安装cmdstanr作为后端
 if (!require(cmdstanr)){
         install.packages("cmdstanr", repos = c('https://stan-dev.r-universe.dev', getOption("repos")))
         library(cmdstanr)
 }
-<<<<<<< HEAD
 set_cmdstan_path('C:/softwares/cmdstan-2.36.0')
-=======
-set_cmdstan_path('C:/softwares/R-4.4.2/cmdstan-2.36.0')
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
+
 
 
 # 配置R包
@@ -40,7 +30,6 @@ if (!require(pacman)){
 
 ## 使用pacman管理R包
 pacman::p_load(
-<<<<<<< HEAD
   'knitr',
   'here',         # 选择路径
   'tidyverse',    # 数据处理
@@ -69,6 +58,7 @@ theme_set(theme_modern())
 ```{r warning=FALSE}
 source('Preprocessing.R')   # 读取并执行数据预处理脚本
 ```
+
 ```{r}
 df.m <- df.m   # shape-label matching task
 df.c <- df.c   # classification task
@@ -228,99 +218,35 @@ pop_mean <- RT_m1 %>%
 
 ```{r}
 # 提取总体水平的后验参数
-df_rt_plot <- RT_m1 %>%
-=======
-        'here',         # 选择路径
-        'tidyverse',    # 数据处理
-        'ggplot2',      # 数据可视化
-        'brms',         # 贝叶斯统计
-        'tidybayes',    # 贝叶斯统计
-        'ggridges',     # 绘制山脊图
-        'patchwork',    # 将多个图拼接在一起
-        "papaja"       # 生成符合APA格式的文档
-               )
-
-```
-
-# 读取数据
-```{r warning=FALSE}
-source('Preprocessing.R')   # 读取并执行数据预处理脚本
-df.m <- df.m   # shape-label matching task
-df.c <- df.c   # classification task
-```
-
-```{r}
-# fit a three-level hierarchical model for RT, didn't specify the prior, lognormal, effective coding
-RT_sec_m1 <- df.c %>%
-        dplyr::mutate(rt_sec = rt/1000) %>% # log RT in seconds
-        dplyr::filter(acc == 1) %>%         # only correct trials
-        brms::brm(rt_sec ~ condition*shape + 
-                          (condition*shape | subj_idx),
-                  family=lognormal(),
-                  data = .,
-                  chains = 4,
-                  iter = 20,#4000,
-                  thin = 1,#2,
-                  control = list(adapt_delta = .95),
-                  cores = parallel::detectCores(),
-                  backend = 'cmdstanr',  # with cmdstanr
-                  file = file.path(curDir, "glmmModels/CT_RT_sec_3_level"))
-
-# 计算所有参数均值和hdi
-pop_mean <- RT_sec_m1 %>%
-        tidybayes::gather_draws(`b_.*`, regex = TRUE) %>%   # 使用正则表达式，提取b_开头的后验分布值，所有参数都是b_开头
-        group_by(.variable) %>%       # this line not necessary (done automatically by spread_draws)
-        tidybayes::mean_hdci(.value)  # get the high density continuous intervals   # 计算所有参数的均值和高密度连续区间（HDI）
-
-# 提取总体水平的后验参数，长数据
-df_rt_plot <- RT_sec_m1 %>%
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
+df_rt_plot <- RT_model %>%
   tidybayes::gather_draws(`b_.*`, regex = TRUE) %>%
   dplyr::rename(term = .variable,
                 pop_mean = .value) %>%  # gather_draws会将变量存储为1列，所有的值存储为另一列
   dplyr::ungroup() %>%
   dplyr::mutate(term = gsub("b_", "", term))%>%
   tidyr::pivot_wider(names_from = c(term), values_from = pop_mean) %>%   # long to wide
-<<<<<<< HEAD
   # 计算各条件反应时分布
   dplyr::mutate(
-=======
-  dplyr::mutate(
-    # 计算条件间差异
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
     Self_PSelf = Intercept,   #  self和classify_self被编码为0              
     Friend_PSelf = Intercept  + shape朋友,
     Stranger_PSelf = Intercept  + shape生人,
     Self_PFriend = Intercept + conditionclassify_friend,             
-<<<<<<< HEAD
     Friend_PFriend = Intercept + conditionclassify_friend + shape朋友 + `conditionclassify_friend:shape朋友`,
     Stranger_PFriend = Intercept + conditionclassify_friend + shape生人 + `conditionclassify_friend:shape生人`,
     Self_PStranger = Intercept + conditionclassify_stranger,             
     Friend_PStranger = Intercept + conditionclassify_stranger + shape朋友 + `conditionclassify_stranger:shape朋友`,
     Stranger_PStranger = Intercept + conditionclassify_stranger + shape生人 + `conditionclassify_stranger:shape生人`)%>%
-=======
-    Friend_PFriend = Intercept + conditionclassify_friend + shape朋友 + conditionclassify_friend:shape朋友,
-    Stranger_PFriend = Intercept + conditionclassify_friend + shape生人 + conditionclassify_friend:shape生人,
-    Self_PStranger = Intercept + conditionclassify_stranger,             
-    Friend_PStranger = Intercept + conditionclassify_stranger + shape朋友 + conditionclassify_stranger:shape朋友,
-    Stranger_PStranger = Intercept + conditionclassify_stranger + shape生人 + conditionclassify_stranger:shape生人)%>%
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
   dplyr::select(`.chain`, `.iteration`, `.draw`,
                 Self_PSelf, Friend_PSelf, Stranger_PSelf,
                 Self_PFriend, Friend_PFriend, Stranger_PFriend,
                 Self_PStranger, Friend_PStranger, Stranger_PStranger) %>%
-<<<<<<< HEAD
   # wide to long
   tidyr::pivot_longer(cols = Self_PSelf:Stranger_PStranger, names_to = "term", values_to =  "value") %>%  
-=======
-  tidyr::pivot_longer(cols = Self_PSelf:Stranger_PStranger, names_to = "term", values_to =  "value") %>%  # wide to long
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
   dplyr::mutate(term = factor(term, levels = c(
                 'Self_PSelf', 'Friend_PSelf', 'Stranger_PSelf',
                 'Self_PFriend', 'Friend_PFriend', 'Stranger_PFriend',
                 'Self_PStranger', 'Friend_PStranger', 'Stranger_PStranger'
   )),
-<<<<<<< HEAD
   # log还原
   value = exp(value))
 
@@ -328,21 +254,6 @@ df_rt_plot <- RT_sec_m1 %>%
 
 ```{r}
 # 描述固定效应
-=======
-                value = exp(value),   # 将RT从log变换中还原并变为ms
-                value = value * 1000)
-
-# use the overall mean values as the vlines
-vlines <- df_rt_plot %>%
-  tidyr::separate(term, c('shape', 'condition')) %>%
-  dplyr::mutate(shape = factor(shape, levels = c('Self', 'Friend', 'Stranger')),
-                condition = factor(condition, levels = c('PSelf', 'PFriend', 'PStranger'))) %>%
-  dplyr::group_by(shape, condition) %>% 
-  dplyr::summarize(Mean = mean(value)) # %>%
-        # dplyr::arrange(Mean)
-
-# 固定效应
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
 df_rt_fixed_effect <- df_rt_plot %>%
         tidyr::pivot_wider(.,
                            id_cols = c('.chain', '.iteration', '.draw'),
@@ -357,7 +268,6 @@ df_rt_fixed_effect <- df_rt_plot %>%
         dplyr::mutate(shape = factor(shape, levels = c('Self', 'Friend', 'Stranger')),
                       condition = factor(condition, levels = c('PSelf', 'PFriend', 'PStranger')))
 
-<<<<<<< HEAD
 # use the overall mean values as the vlines
 vlines <- df_rt_plot %>%
   tidyr::separate(term, c('shape', 'condition')) %>%
@@ -405,6 +315,7 @@ x <- plot(RR_PS)
 g <- ggplot2::ggplot_build(x)
 unique(g$data[[1]]$fill)
 ```
+
 ```{r}
 # HDI 是否包含0
 RT_hdi <- bayestestR::hdi(RT_m1, ci = 0.95)
@@ -413,6 +324,7 @@ RT_hdi
 
 plot(RT_hdi) + scale_fill_flat()
 ```
+
 ```{r}
 # HDI是否包含0，另一种表现方式
 b <- parameters::model_parameters(RT_m1, effects = "fixed", component = "conditional")
@@ -678,90 +590,11 @@ df_acc_fixed_effect <- df_acc_plot %>%
         tidyr::pivot_wider(.,
                            id_cols = c('.chain', '.iteration', '.draw'),
                            names_from = term ) %>% 
-=======
-# THIS is the one which the final plot will based on!!!
-p_rt1 <- df_rt_plot %>%
-        tidyr::separate(term, c('shape', 'condition')) %>% 
-        dplyr::mutate(shape = factor(shape, levels = c('Self', 'Friend', 'Stranger')),
-                      condition = factor(condition, levels = c('PSelf', 'PFriend', 'PStranger')))%>%
-        # 表示不同实验条件下，shape对反应时的影响
-        ggplot2::ggplot(aes(y = condition, x = value, color = shape)) +
-        tidybayes::stat_halfeye(aes(fill = shape), alpha = 0.7) +
-        geom_vline(data = vlines, aes(xintercept = Mean,colour = shape), linetype = "dashed") +
-        labs(x=expression('Posteior distribution of reaction times')) + 
-        scale_colour_brewer(palette = "Dark2") +
-        scale_fill_brewer(palette = "Dark2") +
-        theme_apa(base_size = 20)
-
-p_rt1
-
-# 条件间差异——宽数据
-df_rt_plot_diff_wide <- df_rt_plot %>%
-        tidyr::pivot_wider(names_from = c(term), values_from = value) %>%   # long to wide
-        dplyr::mutate(
-          diff_SF_PS = Self_PSelf - Friend_PSelf,               # calculate the differences between conditions
-          diff_SStr_PS = Self_PSelf - Stranger_PSelf ,
-          diff_FS_PS = Friend_PSelf - Stranger_PSelf ,
-          diff_FS_PF = Friend_PFriend - Self_PFriend, 
-          diff_FStr_PF = Friend_PFriend - Stranger_PFriend,
-          diff_SStr_PF = Self_PFriend - Stranger_PFriend,
-          diff_StrS_PStr = Stranger_PStranger - Self_PStranger,               # calculate the differences between conditions
-          diff_StrF_PStr = Stranger_PStranger - Friend_PStranger ,
-          diff_SF_PStr = Self_PStranger - Friend_PStranger
-          ) %>%
-        dplyr::select(`.chain`, `.iteration`, `.draw`,
-                      diff_SF_PS, diff_SStr_PS, diff_FS_PS,
-                      diff_FS_PF, diff_FStr_PF, diff_SStr_PF,
-                      diff_StrS_PStr, diff_StrF_PStr, diff_SF_PStr)
-
-# 条件间差异——长数据
-df_rt_plot_diff <- df_rt_plot_diff_wide%>%
-        tidyr::pivot_longer(cols = diff_SF_PS:diff_SF_PStr, names_to = "term_diff", values_to =  "value") %>%  # wide to long
-        dplyr::mutate(term_diff = factor(term_diff, levels = c(
-                'diff_SF_PS', 'diff_SStr_PS', 'diff_FS_PS',
-                'diff_FS_PF', 'diff_FStr_PF', 'diff_SStr_PF',
-                'diff_StrS_PStr', 'diff_StrF_PStr', 'diff_SF_PStr'
-        )))
-
-contrast_names_m_rt <- c(`diff_SF_PS` = "Self vs Friend in prioritize Self", 
-                         `diff_SStr_PS` = "Self vs Stranger in prioritize Self",
-                         `diff_FS_PS` = "Friend vs Stranger in prioritize Self",
-                         `diff_FS_PF` = "Friend vs Self in prioritize Friend",
-                         `diff_FStr_PF` = "Friend vs Stranger in prioritize Friend",
-                         `diff_SStr_PF` = "Self vs Stranger in prioritize Friend",
-                         `diff_StrS_PStr` = "Stranger vs Self in prioritize Stranger",
-                         `diff_StrF_PStr` = "Stranger vs Friend in prioritize Stranger",
-                         `diff_SF_PStr` = "Self vs Friend in prioritize Stranger")
-
-p_rt1_diff <- df_rt_plot_diff %>%
-        # 表示不同实验下，match条件下与中性效价的差异。value表示β值的差异，x<0表示比中性效价反应快的部分
-        ggplot2::ggplot(aes(x = value, fill = stat(x < 0))) +
-        tidybayes::stat_halfeye() +
-        geom_vline(xintercept = 0, linetype = "dashed") +# 添加x=0的垂线
-        # scale_fill_manual(values = c('gray80', 'skyblue')) +
-        scale_fill_manual(values = c('skyblue', 'gray80'),
-                    breaks = c(TRUE, FALSE),# 蓝色出现在true组，灰色出现在false组
-                    name = "Effect" , labels = c("Yes", "No")) + # 标签yes表示x<0
-        xlab("Effect of shape on RT") +
-        facet_wrap( ~ term_diff,
-              # scales = "free_y",
-              nrow = 3,)
-              # labeller = as_labeller(contrast_names_m_rt))  + # label_parsed
-        theme_apa(base_size = 20) + 
-        theme(strip.text.x = element_text(size = 8)) # colour = "orange", angle = 90))
-        
-# RT 系数显著大于0的部分
-df_rt1_diff_hdi <- df_rt_plot_diff %>%
-        tidyr::pivot_wider(.,
-                           id_cols = c('.chain', '.iteration', '.draw'),
-                           names_from = term_diff) %>%
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
         dplyr::select(-c('.chain', '.iteration', '.draw')) %>%
         bayestestR::describe_posterior(.,
                                        ci = 0.95,
                                        ci_method = 'hdi',
                                        test = c("p_direction", "p_significance"),
-<<<<<<< HEAD
                                        centrality = "median") %>%
         tidyr::separate(Parameter, c('shape', 'condition')) %>% 
         dplyr::mutate(shape = factor(shape, levels = c('Self', 'Friend', 'Stranger')),
@@ -796,48 +629,8 @@ p_acc1 <- df_acc_plot %>%
 
 p_acc1
 
-=======
-                                       centrality = "median")
-
-p_rt1_diff
 ```
 
-
-```{r}
-# # calculate d prime, 信号检测论（Signal Detection Theory，简称SDT）
-# df.self.dprime <- df.v %>%
-#         dplyr::filter(condition == "classify_self") %>%
-#         dplyr::mutate(
-#                 sdt = dplyr::case_when(             
-#                         (acc == 1 & shape == '自我') ~ "hit",# 击中（Hit）：信号实际存在且被正确检测到
-#                         (acc == 1 & shape != '自我') ~ "CR",# 正确否定（Correct Rejection）：信号无且被正确地判断为无
-#                         (acc == 0 & shape == '自我') ~ "miss",# 漏报（Miss）：信号实际存在但未被检测到。
-#                         (acc == 0 & shape != '自我') ~ "FA"),# 虚报（False Alarm）：信号实际上不存在但被错误地检测为存在。
-#                 saygoal = ifelse((shape == '自我' & acc == 1) | (shape != '自我' & acc == 0), 1, 0),
-#                 isgoal = ifelse(shape == '自我', 1, 0),
-#                 isgoal_num = ifelse(shape == '自我', 0.5, -0.5),
-#                 ) %>% 
-#         dplyr::group_by(subj_idx, shape, sdt) %>%
-#         dplyr::summarise(N = length(sdt)) %>%                                      # calculate the counts for each 
-#         dplyr::ungroup() %>%
-#         tidyr::spread(key = sdt, value = N, fill = 0) %>%                          # long-to-wide format
-#         dplyr::mutate(hitR = hit/(hit + miss),                                     # hit rate
-#                       FAR  = FA/(FA+CR),
-#                       across(everything(), ~ifelse(is.na(.), 0, .))) %>%                                       # fa rate
-#         dplyr::mutate(hitR = ifelse(hitR == 1, 1 - 1/(2*(hit + miss)), hitR),      # if hit rate is 1, standardize it
-#                       hitR = ifelse(hitR == 0, 1/(2*(CR + FA)), hitR),      # if hit rate is 1, standardize it
-#                       FAR  = ifelse(FAR == 0, 1/(2*(hit + miss)), FAR),            # if FA rate is 0, standardize it
-#                       ) %>%        
-#         dplyr::mutate(dprime = qnorm(hitR) - qnorm(FAR)) %>%
-#         dplyr::select(subj_idx, shape, dprime) %>%                # select relevant columns
-#         dplyr::mutate(shape = factor(shape, levels = c("自我","朋友","生人")))
-# df.self.dprime
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
-```
-
-
-
-<<<<<<< HEAD
 
 ### 各条件ACC差异比较
 ```{r}
@@ -1161,6 +954,3 @@ report::report(sessionInfo())
 <!-- p_sdt_self_diff -->
 <!-- ``` -->
 
-
-=======
->>>>>>> 6471ab496f549994fcbe7ef6ef15c0ecf278fc35
