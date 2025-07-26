@@ -83,6 +83,13 @@ function permutation(arr, num) {
     return r;
 }
 
+// 定义一个函数，使注视点呈现时间为 200 到 1100 毫秒的均匀分布随机值
+function getRandomTime() {
+    const min = 200;
+    const max = 1100;
+    return Math.round(min + (max - min) * Math.random());
+}
+
 // createTRTrials辅助函数：随机获取不匹配的标签(排除目标标签)
 function getRandomNonMatchingLabel(target) {
     const availableLabels = config.label_types.filter(l => l !== target);   // 返回非目标标签
@@ -289,7 +296,12 @@ function createTrialTimeline(trials) {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: '<div style="font-size: 60px;">+</div>',
             choices: "NO_KEYS",
-            trial_duration: config.fixation_duration
+            // trial_duration: config.fixation_duration
+            trial_duration: function() {
+                        const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
+                        console.log('注视点时长：', fixationDuration);
+                        return fixationDuration;
+                    }
         });
 
         // 2. 呈现图形序列
