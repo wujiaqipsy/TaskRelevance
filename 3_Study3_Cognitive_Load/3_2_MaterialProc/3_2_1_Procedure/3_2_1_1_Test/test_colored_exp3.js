@@ -22,15 +22,23 @@ var timeline = []
 
 
 // 预加载实验图片
-// 有必要加载带颜色的图片
 var shape_images = [   // 指导语中呈现的刺激--无颜色的形状
     '../img/circle.png',
-    '../img/square.png',
     '../img/triangle.png'
+]
+var color_images = [   // 指导语中呈现的刺激--颜色刷
+    '../img/red.png',
+    '../img/green.png',
+]
+var colored_shapes = [   // 试次中呈现的刺激--有颜色的形状
+    '../img/green_circle.png',
+    '../img/green_triangle.png',
+    '../img/red_circle.png',
+    '../img/red_triangle.png',
 ]
 var preload = {
     type: jsPsychPreload,
-    images: [...shape_images] // 合并数组
+    images: [...shape_images, ...color_images, ...colored_shapes] // 合并数组
 }
 timeline.push(preload);
 
@@ -42,7 +50,9 @@ var view_shape_label = []   // 存储shape-label配对
 var view_shape_color = []   // 存储shape-color配对   
 var ShapeColorMap = new Map();   // 存储图形-颜色对
 var ShapeLabelMap = new Map();   // 存储图形-标签对
-var colors = ['red', 'blue', 'green'];   // 颜色列表，可能用不到
+var ColoredShapeLabelMap = new Map();  // 存储带颜色图形-标签对
+var ColoredShapeColorMap = new Map();  // 存储带颜色图形-颜色对
+var colors = ['red', 'green'];   // 颜色列表，可能用不到
 
 
 const config = {
@@ -50,7 +60,7 @@ const config = {
     min_sequence: 3,   // 最小序列长度 (n + 1)
     max_sequence: 5,   // 最大序列长度
     acc: 70,   // 正确率70%才能通过练习
-    fixation_duration: 500,
+    // fixation_duration: 500,
     shape_duration: 500,
     label_duration: 1500,
     response_window: 2000,
@@ -63,8 +73,8 @@ const config = {
     },
 
     // 标签类型列表
-    label_types: ['自我', '朋友', '生人'],
-    color_types: ["红色", "蓝色", "绿色"],
+    label_types: ['自我', '生人'],
+    color_types: ["红色", "绿色"],
 };
 
 
@@ -90,11 +100,19 @@ function getRandomTime() {
     return Math.round(min + (max - min) * Math.random());
 }
 
-// createTRTrials辅助函数：随机获取不匹配的标签(排除目标标签)
-function getRandomNonMatchingLabel(target) {
-    const availableLabels = config.label_types.filter(l => l !== target);   // 返回非目标标签
-    return availableLabels[Math.floor(Math.random() * availableLabels.length)];   // 返回随机非目标标签
+// 输入带颜色的图形,获取该图形配对的标签与颜色
+function getLabelAndColorByRandomShape(coloredPath) {
+  // 移除文件名中的颜色部分
+  const seqshape = coloredPath.replace(/[^/]+$/, filename => {
+    return filename.replace(/^[\w-]+_/, ''); 
+  });
+
+  // 根据图形名称获取标签和颜色
+  seqlabel = ShapeLabelMap.get(seqshape);
+  seqcolor = ShapeColorMap.get(seqshape);
+  return {seqlabel, seqcolor};
 }
+
 
 // 创建TaskRelevance所有试次
 function createTRTrials(phase) {  // 根据phase参数区分练习和正式实验
@@ -118,10 +136,15 @@ function createTRTrials(phase) {  // 根据phase参数区分练习和正式实�
             count: 0
         });
     });
+    
 
     // 计算总试次数
     const trialsPerCondition = config.trialsPerCondition[phase];  // 获取练习/正式实验单个block重复次数，值为3/15
     const allTrials = trialsPerCondition * allConditions.length;  // 计算练习/正式实验单个block总试次数，值为12/60
+
+    console.log("标签和匹配组成的实验条件:", allConditions);
+    console.log("练习/正式实验总试次:", allTrials);
+    console.log("block内试次重复次数:", trialsPerCondition);
 
     // 循环，逐次生成12/60个试次，每个条件都重复3/15次
     while (trials.length < allTrials) {
@@ -131,43 +154,74 @@ function createTRTrials(phase) {  // 根据phase参数区分练习和正式实�
         // 1. 确定试次的实验条件：随机选择一个实验条件
         const randomIndex = Math.floor(Math.random() * availableConditions.length);
         const condition = availableConditions[randomIndex];   
+        console.log('当前试次的条件', condition);
+
+        // 确定试次呈现的文字标签：根据condition的label_type值确定
+        const displayLabel = condition.label_type;
 
         // 2. 确定试次的图形序列长度：随机生成图形序列长度
         const seqLength = Math.floor(Math.random() * (config.max_sequence - config.min_sequence + 1)) + config.min_sequence;  // 取值在3-5之间，包括首尾
+        console.log('当前试次序列长度', seqLength);
+
+        // 确定试次的目标位置索引
+        const targetIndex = seqLength - config.n;  // 目标位置索引应该不用-1
 
         // 3. 确定试次中序列的内容，序列呈现的图形、对应的标签、对应的颜色
         const shapes = [];
         const labels = [];
         const colors = [];
-        const allShapes = Array.from(ShapeLabelMap.keys());  // 获取所有图形
+        // const allShapes = Array.from(ShapeLabelMap.keys());  // 获取所有图形
 
         for (let j = 0; j < seqLength; j++) {  // 根据seqLength长度指定循环次数
-            // 随机选择图形
-            // （如果图形为彩色的，则随机抽取一个彩色的图形，彩色图形的命名为blue_circle.png，我想要通过图形与标签的映射关系找到这个图形所在的标签；我就需要解析出彩色图形命名中的图形，然后根据图形索引出标签。）
-            // 也就是需要新增一个函数，解析彩色图片的图形名称
-            // 图形是随机出现的，2种图形，2种颜色，一共有4种图形可以随机选择。假设序列长度是3，那么可能是
-            const randomShape = allShapes[Math.floor(Math.random() * allShapes.length)];  // 获取图形序列中的某次呈现的图形
-            shapes.push(randomShape);
-            labels.push(ShapeLabelMap.get(randomShape));  // 获取图形对应的标签
-            colors.push(ShapeColorMap.get(randomShape));  // 获取图形对应的颜色
-            // console.log('labels', labels);
+            if (j === targetIndex) {
+                if (condition.is_match) {
+                    // 目标位置，匹配条件，随机输出与标签配对的带颜色图形；
+                    const matchShapes = [...ColoredShapeLabelMap.keys()].filter(
+                        key => ColoredShapeLabelMap.get(key) === displayLabel
+                    );
+                    seqshape = matchShapes[Math.floor(Math.random() * matchShapes.length)];
+                    shapes.push(seqshape);
+                    console.log('目标位置——匹配——seqshape', seqshape);
+
+                }else {
+                    // 目标位置，不匹配条件，随机输出与标签不配对的带颜色图形；
+                    const mismatchShapes = [...ColoredShapeLabelMap.keys()].filter(
+                        key => ColoredShapeLabelMap.get(key) !== displayLabel
+                    );
+                    seqshape = mismatchShapes[Math.floor(Math.random() * mismatchShapes.length)];
+                    shapes.push(seqshape);
+                    console.log('目标位置——不匹配——seqshape', seqshape);
+                }
+            } else {
+                // 非目标位置，随机选择一个图形
+                seqshape = colored_shapes[Math.floor(Math.random() * colored_shapes.length)];
+                shapes.push(seqshape);
+                console.log('非目标位置——seqshape', seqshape);
+            }
+            const { seqlabel, seqcolor } = getLabelAndColorByRandomShape(seqshape);
+            labels.push(seqlabel);  // 获取图形对应的标签
+            colors.push(seqcolor);  // 获取图形对应的颜色
         }
 
         // 4. 确定试次的目标图形（第前n个图形）及其对应的标签与颜色
-        const targetIndex = seqLength - config.n - 1;  // 目标位置索引应该不用-1
+        
         const targetLabel = labels[targetIndex];
         const targetShape = shapes[targetIndex];
         const targetColor = colors[targetIndex];
+        console.log('目标位置处的形状targetShape', targetShape);
+        console.log('目标位置处的标签targetLabel', targetLabel);
+        console.log('呈现的文字标签displayLabel', displayLabel);
+        
 
-        // console.log('colors', colors);
 
-        // 5. 确定试次呈现的待判断标签
-        let displayLabel;
-        if (condition.is_match) {
-            displayLabel = targetLabel; // 匹配试次：显示图形对应的真实标签
-        } else {
-            displayLabel = getRandomNonMatchingLabel(targetLabel); // 不匹配试次：显示其他标签
-        }
+        // // 5. 确定试次呈现的待判断标签
+        // // let displayLabel;
+        // if (condition.is_match) {
+        //     displayLabel = targetLabel; // 匹配试次：显示图形对应的真实标签
+        // } else {
+        //     displayLabel = getRandomNonMatchingLabel(targetLabel); // 不匹配试次：显示其他标签
+        // }
+        // console.log('displayLabel', displayLabel);
 
         // 6. 创建试次数据
         trials.push({
@@ -188,12 +242,6 @@ function createTRTrials(phase) {  // 根据phase参数区分练习和正式实�
     return trials;
 }
 
-
-// createTIRTrials辅助函数：获取不匹配的颜色(排除目标颜色)
-function getRandomNonMatchingColor(target) {
-    const availableLabels = config.color_types.filter(l => l !== target);   // 返回非目标标签
-    return availableLabels[Math.floor(Math.random() * availableLabels.length)];   // 返回随机非目标标签
-}
 
 // 创建TaskIrrelevance试次
 function createTIRTrials(phase) {
@@ -338,7 +386,9 @@ function createTrialTimeline(trials) {
                 correct_response: trial.correct_response,
                 condition_type: trial.condition_type,
                 condition: 'TaskRelevant',
-                subj_idx: id
+                subj_idx: id,
+                n_back: config.n,   // 认知负荷n值
+                isMatch: trial.condition_type.is_match   // 是否匹配
             },
             on_start: function () {
                 console.log('前2个图形是', trial.target_shape);
@@ -388,8 +438,8 @@ function createTrialTimeline(trials) {
 
 // ====================调用函数：调用顺序很重要，createTRTrials中ShapeLabelMap以及key需要先根据被试ID随机==================== //
 
-// 1. 按被试ID随机配对图形-标签/图形-颜色；ShapeLabelMap, ShapeColorMap
-shape_images = permutation(shape_images, 3)[parseInt(id) % 6]
+// 1. 按被试ID随机配对图形-标签/图形-颜色；建立ShapeLabelMap, ShapeColorMap
+shape_images = permutation(shape_images, 2)[parseInt(id) % 2]
 
 // 二次随机img，S-L上下位置不一样   
 jsPsych.randomization.shuffle(shape_images).forEach((v, i) => {
@@ -399,25 +449,43 @@ jsPsych.randomization.shuffle(shape_images).forEach((v, i) => {
     ShapeColorMap.set(v, `${config.color_types[shape_images.indexOf(v)]}`);// 存储图形-颜色键值对，用于timelinevariable
 });
 
-// 2. 按被试ID随机按键
+// 2. 建立带颜色图形与标签/颜色的映射
+colored_shapes.forEach(coloredShape => {
+    // 提取基础形状名称（去掉颜色前缀）
+  const baseShape = coloredShape.replace(/[^/]+$/, filename => {
+    return filename.replace(/^[\w-]+_/, ''); 
+  });  
+  // 建立带颜色图形与标签的映射
+  ColoredShapeLabelMap.set(coloredShape, ShapeLabelMap.get(baseShape)); 
+
+  // 建立带颜色图形与颜色的映射
+  ColoredShapeColorMap.set(coloredShape, ShapeColorMap.get(baseShape)); 
+//   ColoredShapeColorMap[coloredShape] = ShapeColorMap[baseShape];  
+
+});
+
+
+// 3. 按被试ID随机按键
 key = permutation(key, 2)[parseInt(id) % 2];// 根据ID随机按键
 
 console.log('随ID随机的按键', key);
 console.log('图形-标签配对', ShapeLabelMap);
 console.log('图形-颜色配对', ShapeColorMap);
+console.log('带颜色的图形-标签配对', ColoredShapeLabelMap);
+console.log('带颜色的图形-颜色配对', ColoredShapeColorMap);
 
-// 3. 生成所有试次：随机长度图形序列、呈现标签、ismatch与shaps平衡，6个条件试次数量相等
+// // 4. 生成所有试次：随机长度图形序列、呈现标签、ismatch与shaps平衡(4个条件试次数量相等)
 TR_prac_trials = createTRTrials('prac');
-TR_main_trials = createTRTrials('main');
-TIR_prac_trials = createTIRTrials('prac');
-TIR_main_trials = createTIRTrials('main');
+// TR_main_trials = createTRTrials('main');
+// TIR_prac_trials = createTIRTrials('prac');
+// TIR_main_trials = createTIRTrials('main');
 
-console.log('TR_prac_trials', TR_prac_trials)
-// console.log('TR_main_trials', TR_main_trials)
-// console.log('TIR_prac_trials', TIR_prac_trials)
-// console.log('TIR_main_trials', TIR_main_trials)
+// console.log('TR_prac_trials', TR_prac_trials)
+// // console.log('TR_main_trials', TR_main_trials)
+// // console.log('TIR_prac_trials', TIR_prac_trials)
+// // console.log('TIR_main_trials', TIR_main_trials)
 
-// 4. 生成试次
+// // 4. 生成试次
 const TR_prac = createTrialTimeline(TR_prac_trials)
 timeline.push(...TR_prac);
 

@@ -1,0 +1,43 @@
+---
+title: "Untitled"
+author: "wujiaqi"
+date: "2025-07-29"
+output: html_document
+---
+
+```{r}
+# 配置R包
+if (!require(pacman)){
+        install.packages("pacman")
+        library(pacman)
+}
+
+pacman::p_load(
+  dplyr
+)
+```
+
+```{r}
+data <- read.csv("exp3_123.csv")
+df <- data%>%
+  dplyr::filter(phase != "")%>%
+  dplyr::filter(condition == "TaskRelevant")%>%
+  dplyr::select(
+    subj_idx,
+    # gender,
+    # year,
+    condition,
+    cognitive_load,
+    isMatch,
+    display_label,
+    sequence,
+    target_shape,
+    target_color,
+    target_label,
+    correct_response,
+    response,
+    correct,
+    rt,
+    )
+```
+
