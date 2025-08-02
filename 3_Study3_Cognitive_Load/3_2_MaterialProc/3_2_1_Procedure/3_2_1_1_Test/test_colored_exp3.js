@@ -59,7 +59,7 @@ const config = {
     min_sequence: 3,   // 最小序列长度 (n + 1)
     max_sequence: 5,   // 最大序列长度
     acc: 70,   // 正确率70%才能通过练习
-    rep_block: 4,
+    rep_block: 2, // 4 重复4个block
     // fixation_duration: 500,
     shape_duration: 500,  // 图形呈现时间
     label_duration: 500,  // 标签呈现时间
@@ -69,7 +69,7 @@ const config = {
 
     trialsPerCondition: {
         prac: 1,   // 3， 练习阶段，每个条件重复3次，共有2*2=4个条件，练习试次12次
-        main: 2,   // 15，正式实验，每个条件重复15次。一个block内每个条件有15个试次，结合4个block，每个条件有60个试次。此处的条件指的是标签和匹配的组合
+        main: 1,   // 15，正式实验，每个条件重复15次。一个block内每个条件有15个试次，结合4个block，每个条件有60个试次。此处的条件指的是标签和匹配的组合
     },
 
     n: {
@@ -473,95 +473,96 @@ TIR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.tas
 
 
 // ====================信息采集阶段==================== //
-// // 欢迎语
-// var welcome = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: `
-//      <p>您好，欢迎参加本次实验。</p>
-//      <p>为充分保障您的权利，请确保您已经知晓并同意《参与实验同意书》以及《数据公开知情同意书》。</p>
-//      <p>如果您未见过上述内容，请咨询实验员。</p>
-//      <p>如果您选择继续实验，则表示您已经清楚两份知情同意书的内容并同意。</p>
-//      <p> <div style = "color: green"><按任意键至下页></div> </p>
-//      `,
-//     choices: "ALL_KEYS",
-// };
+// 欢迎语
+var welcome = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <p>您好，欢迎参加本实验。</p>
+        <p>本实验由4个按键任务组成, 预计用时50分钟</p>
+        <p>请您根据指导语完成任务。</p>
+        <p><div style = "color: green"><按任意键至下页></div> </p>
+    `,
+    choices: "ALL_KEYS",
+};
 // timeline.push(welcome);
 
 
-// // 基本信息指导语
-// var basic_information = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: `
-//      <p>本实验首先需要您填写一些基本个人信息。</p>
-//      <p> <div style = "color: green"><按任意键至下页></div></p>
-//      `,
-//     choices: "ALL_KEYS",
-// };
+// 基本信息指导语
+var basic_information = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+     <div style="text-align: center;">
+          <p>首先需要您填写基本个人信息。</p>
+          <div style = "color: green"><按任意键至下页></div>
+     </div>
+     `,
+    choices: "ALL_KEYS",
+};
 // timeline.push(basic_information);
 
 
-// // 基本信息收集
-// var information = {
-//     timeline: [
-//         {//探测被试显示器数据
-//             type: jsPsychCallFunction,
-//             func: function () {
-//                 if ($(window).outerHeight() < 500) {
-//                     alert("您设备不支持实验，请退出全屏模式。若已进入全屏，请换一台高分辨率的设备，谢谢。");
-//                     window.location = "";
-//                 }
-//             }
-//         },
-//         {//收集性别
-//             type: jsPsychHtmlButtonResponse,
-//             stimulus: "<p style = 'color : white'>您的性别</p>",
-//             choices: ['男', '女', '其他'],
-//             on_finish: function (data) {
-//                 info["Sex"] = data.response == 0 ? "Male" : (data.response == 1 ? "Female" : "Other")   // 若反应为0则转为Male,反应为1转为female,其他值转为other
-//             }
-//         },
-//         {//收集出生年
-//             type: jsPsychSurveyHtmlForm,
-//             preamble: "<p style = 'color : white'>您的出生年</p>",
-//             html: function () {
-//                 let data = localStorage.getItem(info["subj_idx"]) ? JSON.parse(localStorage.getItem(info["subj_idx"]))["BirthYear"] : "";// 提示用户输入1900~2023数值，若输入超过4位数则截取前四位
-//                 return `<p>
-//         <input name="Q0" type="number" value=${data} placeholder="1900~2023" min=1900 max=2023 oninput="if(value.length>4) value=value.slice(0,4)" required />
-//         </p>`
-//             },
-//             button_label: '继续',
-//             on_finish: function (data) {
-//                 info["BirthYear"] = data.response.Q0;
-//             }
-//         },
-//         {//收集教育经历
-//             type: jsPsychSurveyHtmlForm,
-//             preamble: "<p style = 'color : white'>您的教育经历是</p>",
-//             html: function () {
-//                 return `
-//                 <p><select name="Q0" size=10>
-//                 <option value=1>小学以下</option>
-//                 <option value=2>小学</option>
-//                 <option value=3>初中</option>
-//                 <option value=4>高中</option>
-//                 <option value=5>大学</option>
-//                 <option value=6>硕士</option>
-//                 <option value=7>博士</option>
-//                 <option value=8>其他</option>
-//                 </select></p>`
-//             },
-//             on_load: function () {
-//                 $("option[value=" + (["below primary school", "primary school", "junior middle school", "high school", "university", "master", "doctor", "other"].indexOf(localStorage.getItem(info["subj_idx"]) ? JSON.parse(localStorage.getItem(info["subj_idx"]))["Education"] : "") + 1) + "]").attr("selected", true);
-//             },
-//             button_label: '继续',
-//             on_finish: function (data) {
-//                 let edu = ["below primary school", "primary school", "junior middle school", "high school", "university", "master", "doctor", "other"];
+// 基本信息收集
+var information = {
+    timeline: [
+        {//探测被试显示器数据
+            type: jsPsychCallFunction,
+            func: function () {
+                if ($(window).outerHeight() < 500) {
+                    alert("您设备不支持实验，请退出全屏模式。若已进入全屏，请换一台高分辨率的设备，谢谢。");
+                    window.location = "";
+                }
+            }
+        },
+        {//收集性别
+            type: jsPsychHtmlButtonResponse,
+            stimulus: "<p style = 'color : white'>您的性别</p>",
+            choices: ['男', '女', '其他'],
+            on_finish: function (data) {
+                info["Sex"] = data.response == 0 ? "Male" : (data.response == 1 ? "Female" : "Other")   // 若反应为0则转为Male,反应为1转为female,其他值转为other
+            }
+        },
+        {//收集出生年
+            type: jsPsychSurveyHtmlForm,
+            preamble: "<p style = 'color : white'>您的出生年</p>",
+            html: function () {
+                let data = localStorage.getItem(info["subj_idx"]) ? JSON.parse(localStorage.getItem(info["subj_idx"]))["BirthYear"] : "";// 提示用户输入1900~2023数值，若输入超过4位数则截取前四位
+                return `<p>
+        <input name="Q0" type="number" value=${data} placeholder="1900~2023" min=1900 max=2023 oninput="if(value.length>4) value=value.slice(0,4)" required />
+        </p>`
+            },
+            button_label: '继续',
+            on_finish: function (data) {
+                info["BirthYear"] = data.response.Q0;
+            }
+        },
+        {//收集教育经历
+            type: jsPsychSurveyHtmlForm,
+            preamble: "<p style = 'color : white'>您的教育经历是</p>",
+            html: function () {
+                return `
+                <p><select name="Q0" size=10>
+                <option value=1>小学以下</option>
+                <option value=2>小学</option>
+                <option value=3>初中</option>
+                <option value=4>高中</option>
+                <option value=5>大学</option>
+                <option value=6>硕士</option>
+                <option value=7>博士</option>
+                <option value=8>其他</option>
+                </select></p>`
+            },
+            on_load: function () {
+                $("option[value=" + (["below primary school", "primary school", "junior middle school", "high school", "university", "master", "doctor", "other"].indexOf(localStorage.getItem(info["subj_idx"]) ? JSON.parse(localStorage.getItem(info["subj_idx"]))["Education"] : "") + 1) + "]").attr("selected", true);
+            },
+            button_label: '继续',
+            on_finish: function (data) {
+                let edu = ["below primary school", "primary school", "junior middle school", "high school", "university", "master", "doctor", "other"];
 
-//                 info["Education"] = edu[parseInt(data.response.Q0) - 1];
-//             }
-//         }
-//     ]
-// };
+                info["Education"] = edu[parseInt(data.response.Q0) - 1];
+            }
+        }
+    ]
+};
 // timeline.push(information);
 
 
@@ -654,6 +655,54 @@ TIR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.tas
 // }
 // timeline.push(Tr_instr);
 
+// 图形-标签匹配任务n-back指导语
+function task_instr(condition_result) {
+    return {
+        type: jsPsychInstructions,
+        pages: function () {
+            let start = "<p>请您记住下列对应关系:</p>",
+                middle = "<p>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
+                end = "<p>如果您记住了对应关系及按键规则，请点击 继续</p>";
+            let tmpI = "";
+            let nBack;
+            if(condition_result.trials[0].task === 'TaskRelevant'){
+                view_shape_label.forEach(v => {   // 呈现图形标签对应关系
+                tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+            })}else if(condition_result.trials[0].task === 'TaskIRRelevant'){
+                view_shape_color.forEach(v => {   // 呈现图形标签对应关系
+                tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+                })
+            }
+            if(condition_result.trials[0].n_back >1){
+                nBack = config.n.high
+            }else if (condition_result.trials[0].n_back <=1){
+                nBack = config.n.low
+            }
+            console.log("当前任务是", condition_result, "当前呈现配对关系是", tmpI, "当前nback数是", nBack)
+            return [
+                start + `<div class="box">${tmpI}</div>`,
+                `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
+                 <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配, </span></p>
+                 <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
+                 <p style ='font-size: 20px';>在实验过程中请将您<span style="color: lightgreen; ">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
+                `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
+                 <p>通过练习后，您将进入正式实验。</p></span>`,
+                middle + end];
+        },
+        show_clickable_nav: true,
+        button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
+        button_label_next: " <span class='add_' style='color:black; font-size: 20px; '> 继续</span>",
+        on_load: () => {
+            $("body").css("cursor", "default");
+        },// 开始时鼠标出现
+        on_finish: function () {
+            $("body").css("cursor", "none");
+        } //结束时鼠标消失
+    }
+}
+    
+// timeline.push(Tr_instr);
+
 
 // 创建单个block时间线
 function Block(condition_result) {
@@ -698,42 +747,87 @@ function pracBlockFeedback(condition_result) {
 }
 
 
+// // 被试重新回忆联结关系
+// var recapInstr = { //在这里呈现文字回顾，让被试再记一下
+//     type: jsPsychInstructions,
+//     pages: function () {
+//         let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记住下列对应关系，并再次进行练习。</p>",
+//             middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
+//             end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：请按 继续 进入练习</p><div>";
+//         let tmpI = "";
+//         view_shape_label.forEach(v => {   // 任务相关条件记忆shape-label
+//             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+//         });
+//         return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
+//             start + `<div class="box">${tmpI}</div>`,
+//             `<p class='footer' style='font-size: 35px; line-height: 40px;'>当前任务中，屏幕中央将序列呈现图片与标签，</p>
+//             <p class='footer' style='font-size: 35px; line-height: 40px;'>您需要在标签出现时,判断前${config.n.high}个图形是否与当前标签匹配，</p>
+//       <p class='footer' style='color:white; font-size: 35px;line-height: 40px'>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>            
+//       </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
+//             middle + end];
+//     },
+//     show_clickable_nav: true,
+//     button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
+//     button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
+//     on_finish: function () {
+//         $("body").css("cursor", "none");
+//     },
+//     on_load: () => {
+//         $("body").css("cursor", "default");
+//     }
+// }
+
 // 被试重新回忆联结关系
-var recapInstr = { //在这里呈现文字回顾，让被试再记一下
-    type: jsPsychInstructions,
-    pages: function () {
-        let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记住下列对应关系，并再次进行练习。</p>",
-            middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-            end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：请按 继续 进入练习</p><div>";
-        let tmpI = "";
-        view_shape_label.forEach(v => {   // 任务相关条件记忆shape-label
-            tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-        });
-        return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
-            start + `<div class="box">${tmpI}</div>`,
-            `<p class='footer' style='font-size: 35px; line-height: 40px;'>当前任务中，屏幕中央将序列呈现图片与标签，</p>
-            <p class='footer' style='font-size: 35px; line-height: 40px;'>您需要在标签出现时,判断前${config.n.high}个图形是否与当前标签匹配，</p>
-      <p class='footer' style='color:white; font-size: 35px;line-height: 40px'>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>            
-      </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
-            middle + end];
-    },
-    show_clickable_nav: true,
-    button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
-    button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
-    on_finish: function () {
-        $("body").css("cursor", "none");
-    },
-    on_load: () => {
-        $("body").css("cursor", "default");
+function recapInstr(condition_result) {
+    return {
+        type: jsPsychInstructions,
+        pages: function () {
+            let start = "<p>请您努力记住下列对应关系，并再次进行练习。</p>",
+                middle = "<p>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
+                end = "<p>如果您明白了规则：请按 继续 进入练习</p>";
+            let tmpI = "";
+            let nBack;
+            if(condition_result.trials[0].task === 'TaskRelevant'){
+                view_shape_label.forEach(v => {   // 呈现图形标签对应关系
+                tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+            })}else if(condition_result.trials[0].task === 'TaskIRRelevant'){
+                view_shape_color.forEach(v => {   // 呈现图形标签对应关系
+                tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+                })
+            }
+            if(condition_result.trials[0].n_back >1){
+                nBack = config.n.high
+            }else if (condition_result.trials[0].n_back <=1){
+                nBack = config.n.low
+            }
+            console.log("当前任务是", condition_result, "当前呈现配对关系是", tmpI, "当前nback数是", nBack)
+            return [
+                "<p>您的正确率未达到进入正式实验的要求。</p>",
+                start + `<div class="box">${tmpI}</div>`,
+                `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
+                 <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配，</span></p>
+                 <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
+                 <p><span style="color: lightgreen;">请您又快又准地进行按键。</span></p>`,
+                middle + end];
+            },
+        show_clickable_nav: true,
+        button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
+        button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
+        on_finish: function () {
+            $("body").css("cursor", "none");
+        },
+        on_load: () => {
+            $("body").css("cursor", "default");
+        }
+        }
     }
-}
 
 
 // 判断是否重新练习
 function reprac_if_node(condition_result){
     return{
         timeline: [
-            recapInstr
+            recapInstr(condition_result)
         ],
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
@@ -851,7 +945,7 @@ let rest = {
             [{ correct: true }, { correct: false }]
         );
         return `
-                    <p>图形-标签匹配任务中，您还剩余${resid_block_numb}组实验</p>
+                    <p>当前任务中，您还剩余${resid_block_numb}组实验</p>
                     <p>现在是休息时间，当您结束休息后，您可以点击 结束休息 按钮 继续</p>
                     <p>建议休息时间还剩余<span id="iii">60</span>秒</p>`
     },
@@ -900,6 +994,7 @@ function createTaskTrials(prac_result, main_result) {
     return [
         {
             timeline: [
+                task_instr(prac_result),
                 ...createPracticeBlock(prac_result),
                 Congrats,
                 ...createMainBlock(main_result)
@@ -910,17 +1005,31 @@ function createTaskTrials(prac_result, main_result) {
 }
 
 
-// ====================4种任务的时间线封装==================== //
-timeline.push(...createTaskTrials(prac_result = TR_high_prac_result, main_result = TR_high_main_result)); // TR低难度正式实验
-// timeline.push(...createTaskTrials(prac_result = TR_high_prac_result, main_result = TR_high_main_result)); // TR低难度正式实验
-// timeline.push(...createTaskTrials(prac_result = TIR_high_prac_result, main_result = TIR_high_main_result)); // TR低难度正式实验
-// timeline.push(...createTaskTrials(prac_result = TIR_high_prac_result, main_result = TIR_high_main_result)); // TR低难度正式实验
+
+// 定义四个基本任务
+const task_TR_high = { name: 'TR_high', prac: TR_high_prac_result, main: TR_high_main_result };
+const task_TR_low = { name: 'TR_low', prac: TR_low_prac_result, main: TR_low_main_result };
+const task_TIR_high = { name: 'TIR_high', prac: TIR_high_prac_result, main: TIR_high_main_result };
+const task_TIR_low = { name: 'TIR_low', prac: TIR_low_prac_result, main: TIR_low_main_result };
 
 
+const orderId = id % 4;
+const taskSequence = [
+    // TR组的顺序
+    orderId & 1 ? task_TR_low : task_TR_high,
+    orderId & 1 ? task_TR_high : task_TR_low,
+    
+    // TIR组的顺序
+    orderId >> 1 & 1 ? task_TIR_low : task_TIR_high,
+    orderId >> 1 & 1 ? task_TIR_high : task_TIR_low
+]
 
+console.log("被试的顺序ID是", orderId)
+console.log("被试抽中的顺序是", taskSequence)
 
-// ====================下阶段的目标是将4个任务分别封装成独立模块并实现调用顺序随id随机==================== //
-
+taskSequence.forEach(task => {
+    timeline.push(...createTaskTrials(task.prac, task.main));
+});
 
 // // 实验结束语
 // var finish = {
