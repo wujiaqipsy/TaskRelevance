@@ -1,4 +1,4 @@
-// main基于test修改指导语表述、函数调用位置，全局变量设置，时间线变量的repetitions、block的repetitions、反馈计算中的单个block总试次数
+    // main基于test修改指导语表述、函数调用位置，全局变量设置，时间线变量的repetitions、block的repetitions、反馈计算中的单个block总试次数
 
 
 //  初始化jsPsych对象
@@ -46,8 +46,8 @@ timeline.push(preload);
 // ====================实验参数设置==================== //
 var info = []   // 存储被试信息
 var key = ['f', 'j']   // 被试按键
-var view_shape_label = []   // 存储shape-label配对
-var view_shape_color = []   // 存储shape-color配对   
+var view_shape_label = []   // 存储指导语中shape-label配对
+var view_shape_color = []   // 存储指导语中shape-color配对   
 var ShapeColorMap = new Map();   // 存储图形-颜色对
 var ShapeLabelMap = new Map();   // 存储图形-标签对
 var ColoredShapeLabelMap = new Map();  // 存储带颜色图形-标签对
@@ -56,25 +56,37 @@ var colors = ['red', 'green'];   // 颜色列表，可能用不到
 
 
 const config = {
-    n: 2, // 设置n-back的n值（例如2-back） [1, 2, 3]
     min_sequence: 3,   // 最小序列长度 (n + 1)
     max_sequence: 5,   // 最大序列长度
     acc: 70,   // 正确率70%才能通过练习
+    rep_block: 4,
     // fixation_duration: 500,
-    shape_duration: 500,
-    label_duration: 1500,
-    response_window: 2000,
-    feedback_duration: 300,
+    shape_duration: 500,  // 图形呈现时间
+    label_duration: 500,  // 标签呈现时间
+    response_window: 2000,  // 反应窗口时间
+    feedback_duration: 300,  // 反馈持续时间
     isi: 500,   // 图形间隔
 
     trialsPerCondition: {
-        prac: 3,   // 练习阶段每个条件3次，共练习18次
-        main: 15       // 正式实验每个条件15次。重复5个block，每个条件试次有75个
+        prac: 1,   // 3， 练习阶段，每个条件重复3次，共有2*2=4个条件，练习试次12次
+        main: 2,   // 15，正式实验，每个条件重复15次。一个block内每个条件有15个试次，结合4个block，每个条件有60个试次。此处的条件指的是标签和匹配的组合
+    },
+
+    n: {
+        low: 1,  // 低认知负荷
+        high: 2,  // 高认知负荷
+    },
+
+    task:{
+        TR: 'TaskRelevant',  // 自我与任务相关条件
+        TIR: 'TaskIRRelevant',  // 自我与任务无关条件
+
     },
 
     // 标签类型列表
     label_types: ['自我', '生人'],
     color_types: ["红色", "绿色"],
+
 };
 
 
@@ -100,28 +112,30 @@ function getRandomTime() {
     return Math.round(min + (max - min) * Math.random());
 }
 
-// 输入带颜色的图形,获取该图形配对的标签与颜色
-function getLabelAndColorByRandomShape(coloredPath) {
-  // 移除文件名中的颜色部分
-  const seqshape = coloredPath.replace(/[^/]+$/, filename => {
-    return filename.replace(/^[\w-]+_/, ''); 
-  });
+// // 输入带颜色的图形,获取该图形配对的标签与颜色（建立带颜色图形与标签的map后就没用了）
+// function getLabelAndColorByRandomShape(coloredPath) {
+//   // 移除文件名中的颜色部分
+//   const seqshape = coloredPath.replace(/[^/]+$/, filename => {
+//     return filename.replace(/^[\w-]+_/, ''); 
+//   });
 
-  // 根据图形名称获取标签和颜色
-  seqlabel = ShapeLabelMap.get(seqshape);
-  seqcolor = ShapeColorMap.get(seqshape);
-  return {seqlabel, seqcolor};
-}
+//   // 根据图形名称获取标签和颜色
+//   seqlabel = ShapeLabelMap.get(seqshape);
+//   seqcolor = ShapeColorMap.get(seqshape);
+//   return {seqlabel, seqcolor};
+// }
 
 
 // 创建TaskRelevance所有试次
-function createTRTrials(phase) {  // 根据phase参数区分练习和正式实验
+function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与正式实验创建不同的试次。
+    const n_back = n;   // 认知负荷n值;
     const trials = [];
 
-    // 存储所有实验条件，实验条件为label_types和is_match的组合，取值取决于label_types
+    // 存储所有实验条件，实验条件为label_types和is_match的组合，2*2=4
     const allConditions = [];
 
-    config.label_types.forEach(labelType => {
+    if(task === config.task.TR){
+        config.label_types.forEach(labelType => {
         // 匹配试次
         allConditions.push({
             label_type: labelType,
@@ -136,52 +150,63 @@ function createTRTrials(phase) {  // 根据phase参数区分练习和正式实�
             count: 0
         });
     });
+    }else if(task === config.task.TIR){
+        config.color_types.forEach(colorType => {
+            // 匹配试次
+            allConditions.push({
+                color_type: colorType,
+                is_match: true,
+                count: 0
+            });
+
+            // 不匹配试次
+            allConditions.push({
+                color_type: colorType,
+                is_match: false,
+                count: 0
+            });
+        });
+    }
     
-
     // 计算总试次数
-    const trialsPerCondition = config.trialsPerCondition[phase];  // 获取练习/正式实验单个block重复次数，值为3/15
-    const allTrials = trialsPerCondition * allConditions.length;  // 计算练习/正式实验单个block总试次数，值为12/60
+    const trialsPerCondition = config.trialsPerCondition[phase];  // 获取练习/正式实验每个条件的重复次数，值为3/15
+    const aBlockTrials = trialsPerCondition * allConditions.length;  // 计算练习/正式实验单个block总试次数，值为12/60
 
-    console.log("标签和匹配组成的实验条件:", allConditions);
-    console.log("练习/正式实验总试次:", allTrials);
-    console.log("block内试次重复次数:", trialsPerCondition);
-
-    // 循环，逐次生成12/60个试次，每个条件都重复3/15次
-    while (trials.length < allTrials) {
-        const availableConditions = allConditions.filter(c => c.count < trialsPerCondition);   // 返回未满3/15次重复的条件。
+    // 生成单个试次，循环至所有试次完成，共12/60次
+    while (trials.length < aBlockTrials) {
+        const availableConditions = allConditions.filter(c => c.count < trialsPerCondition);   // 返回未满3/15次重复的所有条件。
         if (availableConditions.length === 0) break;
 
         // 1. 确定试次的实验条件：随机选择一个实验条件
         const randomIndex = Math.floor(Math.random() * availableConditions.length);
         const condition = availableConditions[randomIndex];   
-        console.log('当前试次的条件', condition);
-
-        // 确定试次呈现的文字标签：根据condition的label_type值确定
-        const displayLabel = condition.label_type;
 
         // 2. 确定试次的图形序列长度：随机生成图形序列长度
         const seqLength = Math.floor(Math.random() * (config.max_sequence - config.min_sequence + 1)) + config.min_sequence;  // 取值在3-5之间，包括首尾
-        console.log('当前试次序列长度', seqLength);
 
-        // 确定试次的目标位置索引
-        const targetIndex = seqLength - config.n;  // 目标位置索引应该不用-1
+        // 3. 确定试次的目标位置索引
+        const targetIndex = seqLength - n_back;  // 目标位置索引应该不用-1
 
-        // 3. 确定试次中序列的内容，序列呈现的图形、对应的标签、对应的颜色
+        // 4. 确定试次中呈现的标签、序列图片、图片对应的标签
         const shapes = [];
         const labels = [];
         const colors = [];
-        // const allShapes = Array.from(ShapeLabelMap.keys());  // 获取所有图形
 
-        for (let j = 0; j < seqLength; j++) {  // 根据seqLength长度指定循环次数
+        // 自我与任务有关条件
+        if(task === config.task.TR){
+
+            const displayLabel = condition.label_type;  // 当前试次显示的标签
+
+            for (let j = 0; j < seqLength; j++) {  // 循环生成所有试次
+
             if (j === targetIndex) {
                 if (condition.is_match) {
-                    // 目标位置，匹配条件，随机输出与标签配对的带颜色图形；
+                    // 目标位置，匹配条件，随机输出一个与标签配对的带颜色图形；
                     const matchShapes = [...ColoredShapeLabelMap.keys()].filter(
                         key => ColoredShapeLabelMap.get(key) === displayLabel
                     );
                     seqshape = matchShapes[Math.floor(Math.random() * matchShapes.length)];
                     shapes.push(seqshape);
-                    console.log('目标位置——匹配——seqshape', seqshape);
 
                 }else {
                     // 目标位置，不匹配条件，随机输出与标签不配对的带颜色图形；
@@ -190,154 +215,98 @@ function createTRTrials(phase) {  // 根据phase参数区分练习和正式实�
                     );
                     seqshape = mismatchShapes[Math.floor(Math.random() * mismatchShapes.length)];
                     shapes.push(seqshape);
-                    console.log('目标位置——不匹配——seqshape', seqshape);
                 }
             } else {
                 // 非目标位置，随机选择一个图形
                 seqshape = colored_shapes[Math.floor(Math.random() * colored_shapes.length)];
                 shapes.push(seqshape);
-                console.log('非目标位置——seqshape', seqshape);
             }
-            const { seqlabel, seqcolor } = getLabelAndColorByRandomShape(seqshape);
+            // 获取序列图形对应的标签
+            seqlabel = ColoredShapeLabelMap.get(seqshape);
             labels.push(seqlabel);  // 获取图形对应的标签
-            colors.push(seqcolor);  // 获取图形对应的颜色
         }
 
-        // 4. 确定试次的目标图形（第前n个图形）及其对应的标签与颜色
-        
-        const targetLabel = labels[targetIndex];
+        // 获取目标位置的图形以及图形对应的标签
         const targetShape = shapes[targetIndex];
-        const targetColor = colors[targetIndex];
-        console.log('目标位置处的形状targetShape', targetShape);
-        console.log('目标位置处的标签targetLabel', targetLabel);
-        console.log('呈现的文字标签displayLabel', displayLabel);
-        
+        const targetLabel = labels[targetIndex];
 
-
-        // // 5. 确定试次呈现的待判断标签
-        // // let displayLabel;
-        // if (condition.is_match) {
-        //     displayLabel = targetLabel; // 匹配试次：显示图形对应的真实标签
-        // } else {
-        //     displayLabel = getRandomNonMatchingLabel(targetLabel); // 不匹配试次：显示其他标签
-        // }
-        // console.log('displayLabel', displayLabel);
-
-        // 6. 创建试次数据
+        // 生成试次数据
         trials.push({
             phase: phase,
+            n_back: n_back,
+            task: task,
+            condition_type: condition,
             sequence: shapes,
             target_shape: targetShape,
-            target_color: targetColor,
             target_label: targetLabel,
             display_label: displayLabel,
             correct_response: condition.is_match ? key[0] : key[1],
-            condition_type: condition
         });
+    
+    }else if(task === config.task.TIR){
 
-        // 7. 更新该条件的计数
-        condition.count++;
-    }
+            const displayColor = condition.color_type;
 
-    return trials;
-}
-
-
-// 创建TaskIrrelevance试次
-function createTIRTrials(phase) {
-    const trials = [];
-
-    // 生成所有可能的条件组合
-    const allConditions = [];
-
-    // 每个标签类型 * 匹配类型 = 6
-    config.color_types.forEach(colorType => {
-        // 匹配试次
-        allConditions.push({
-            color_type: colorType,
-            is_match: true,
-            count: 0
-        });
-
-        // 不匹配试次
-        allConditions.push({
-            color_type: colorType,
-            is_match: false,
-            count: 0
-        });
-    });
-
-    // 计算总试次数
-    const trialsPerCondition = config.trialsPerCondition[phase];
-    const allTrials = trialsPerCondition * allConditions.length;
-
-    // 循环直到所有条件达到目标次数
-    while (trials.length < allTrials) {
-        // 随机选择一个未满的条件
-        const availableConditions = allConditions.filter(c => c.count < trialsPerCondition);   // 返回所有试次数没到指定试次数的条件
-        if (availableConditions.length === 0) break;
-
-        const randomIndex = Math.floor(Math.random() * availableConditions.length);
-        const condition = availableConditions[randomIndex];   // 随机选择一个条件进行试次填充
-
-        // 1. 随机生成图形序列长度
-        const seqLength = Math.floor(Math.random() * (config.max_sequence - config.min_sequence + 1)) + config.min_sequence;
-
-        // 2. 创建图形序列
-        const shapes = [];
-        const colors = [];
-        const labels = [];
-        const allShapes = Array.from(ShapeLabelMap.keys());
-
-        // 生成长度随机的图形序列
-        for (let j = 0; j < seqLength; j++) {
-            // 完全随机选择图形
-            const randomShape = allShapes[Math.floor(Math.random() * allShapes.length)];
-            shapes.push(randomShape);
-            labels.push(ShapeLabelMap.get(randomShape));
-            colors.push(ShapeColorMap.get(randomShape));
+            for (let j = 0; j < seqLength; j++) {
+            if (j === targetIndex) {
+                if (condition.is_match) {
+                    // 目标位置，匹配条件，随机输出一个与标签配对的带颜色图形；
+                    const matchShapes = [...ColoredShapeColorMap.keys()].filter(
+                        key => ColoredShapeColorMap.get(key) === displayColor
+                    );
+                    seqshape = matchShapes[Math.floor(Math.random() * matchShapes.length)];
+                    shapes.push(seqshape);
+                }else {
+                    // 目标位置，不匹配条件，随机输出与标签不配对的带颜色图形；
+                    const mismatchShapes = [...ColoredShapeColorMap.keys()].filter(
+                        key => ColoredShapeColorMap.get(key) !== displayColor
+                    );
+                    seqshape = mismatchShapes[Math.floor(Math.random() * mismatchShapes.length)];
+                    shapes.push(seqshape);
+                }
+            } else {
+                // 非目标位置，随机选择一个图形
+                seqshape = colored_shapes[Math.floor(Math.random() * colored_shapes.length)];
+                shapes.push(seqshape);
+            }
+            // 获取序列图形对应的标签
+            seqcolor = ColoredShapeColorMap.get(seqshape);
+            colors.push(seqcolor);  // 获取图形对应的标签
         }
 
-        // 3. 确定目标位置索引
-        const targetIndex = seqLength - config.n - 1;
-        // 获取目标图形的实际颜色
-        const targetColor = colors[targetIndex];
-        const targetLabel = labels[targetIndex];
+        // 获取目标位置的图形以及图形对应的标签
         const targetShape = shapes[targetIndex];
+        const targetColor = colors[targetIndex];
 
-        // 4. 生成显示的标签
-        let displayColor;
-        if (condition.is_match) {
-            displayColor = targetColor; // 匹配试次：显示图形对应的真实颜色
-        } else {
-            displayColor = getRandomNonMatchingColor(targetColor); // 不匹配试次：显示其他颜色
-        }
-
-        // 5. 创建试次数据
+        // 生成试次数据
         trials.push({
             phase: phase,
+            n_back: n_back,
+            task: task,
+            condition_type: condition,
             sequence: shapes,
             target_shape: targetShape,
             target_color: targetColor,
-            target_label: targetLabel,
             display_color: displayColor,
             correct_response: condition.is_match ? key[0] : key[1],
-            condition_type: condition
         });
+    
+    }
 
         // 更新该条件的计数
         condition.count++;
     }
 
-    return trials;
+    return {trials, aBlockTrials};   // 返回试次和单个block的总试次数 
 }
 
+
+// 创建单个试次的时间线：注视点、图片序列、文字标签、反应窗口、反馈
 function createTrialTimeline(trials) {
     const timeline = [];
 
     // 遍历每个试次
     trials.forEach(trial => {
-        console.log(trial);
 
         // 1. 注视点
         timeline.push({
@@ -371,32 +340,41 @@ function createTrialTimeline(trials) {
         // 3. 呈现文字标签并收集反应
         timeline.push({
             type: jsPsychHtmlKeyboardResponse,
-            stimulus: `<div style="font-size: 60px;">${trial.display_label}</div>`,
+            // stimulus: `<div style="font-size: 60px;">${trial.display_label}</div>`,
+            stimulus: function () {
+                if (trial.task === config.task.TR) {
+                    return `<div style="font-size: 60px;">${trial.display_label}</div>`;
+                } else if (trial.task === config.task.TIR) {
+                    return `<div style="font-size: 60px;">${trial.display_color}</div>`;
+                }
+            },
             choices: ['f', 'j'],
+            stimulus_duration: config.label_duration,
             trial_duration: config.response_window,
             response_ends_trial: true,
             data: {
+                subj_idx: id,
                 phase: trial.phase,
                 stage: 'response',
+                 condition_type: trial.condition_type,
+                TaskRelevance: trial.task,
+                CognitiveLoad: trial.n_back,   // 认知负荷n值
+                isMatch: trial.condition_type.is_match,   // 是否匹配
+                display_label: trial.display_label,
+                display_color: trial.display_color,
                 sequence: trial.sequence.join(','),
                 target_shape: trial.target_shape,
                 target_color: trial.target_color,
                 target_label: trial.target_label,
-                display_label: trial.display_label,
-                correct_response: trial.correct_response,
-                condition_type: trial.condition_type,
-                condition: 'TaskRelevant',
-                subj_idx: id,
-                n_back: config.n,   // 认知负荷n值
-                isMatch: trial.condition_type.is_match   // 是否匹配
+                correct_response: trial.correct_response
             },
             on_start: function () {
                 console.log('前2个图形是', trial.target_shape);
-                console.log('呈现的标签是', trial.display_label);
+                // data.correct_response = trial.correct_response;
+                console.log('data.correct_response', trial.correct_response)
             },
             on_finish: function (data) {
                 data.correct_response = trial.correct_response;
-                console.log('data.correct_response', data.correct_response)
                 console.log('data.keypress', data.response)
                 data.correct = data.correct_response == data.response;   // 按键正确与否
                 console.log('data.correct', data.correct)
@@ -408,7 +386,6 @@ function createTrialTimeline(trials) {
             stimulus: function () {
                 const lastTrial = jsPsych.data.get().last(1).values()[0];
                 const keypress = lastTrial.response;
-                console.log('单个试次反馈里的keypress', keypress)
                 const time = lastTrial.rt;
                 const trial_correct_response = lastTrial.correct_response;
                 if (time > 1500 || time === null) { //大于1500或为null为过慢
@@ -451,16 +428,11 @@ jsPsych.randomization.shuffle(shape_images).forEach((v, i) => {
 
 // 2. 建立带颜色图形与标签/颜色的映射
 colored_shapes.forEach(coloredShape => {
-    // 提取基础形状名称（去掉颜色前缀）
-  const baseShape = coloredShape.replace(/[^/]+$/, filename => {
+  const baseShape = coloredShape.replace(/[^/]+$/, filename => {    // 提取基础形状名称（去掉颜色前缀）
     return filename.replace(/^[\w-]+_/, ''); 
   });  
-  // 建立带颜色图形与标签的映射
-  ColoredShapeLabelMap.set(coloredShape, ShapeLabelMap.get(baseShape)); 
-
-  // 建立带颜色图形与颜色的映射
-  ColoredShapeColorMap.set(coloredShape, ShapeColorMap.get(baseShape)); 
-//   ColoredShapeColorMap[coloredShape] = ShapeColorMap[baseShape];  
+  ColoredShapeLabelMap.set(coloredShape, ShapeLabelMap.get(baseShape));  // 建立带颜色图形与标签的映射
+  ColoredShapeColorMap.set(coloredShape, ShapeColorMap.get(baseShape));  // 建立带颜色图形与颜色的映射
 
 });
 
@@ -468,29 +440,39 @@ colored_shapes.forEach(coloredShape => {
 // 3. 按被试ID随机按键
 key = permutation(key, 2)[parseInt(id) % 2];// 根据ID随机按键
 
-console.log('随ID随机的按键', key);
-console.log('图形-标签配对', ShapeLabelMap);
-console.log('图形-颜色配对', ShapeColorMap);
-console.log('带颜色的图形-标签配对', ColoredShapeLabelMap);
-console.log('带颜色的图形-颜色配对', ColoredShapeColorMap);
-
-// // 4. 生成所有试次：随机长度图形序列、呈现标签、ismatch与shaps平衡(4个条件试次数量相等)
-TR_prac_trials = createTRTrials('prac');
-// TR_main_trials = createTRTrials('main');
-// TIR_prac_trials = createTIRTrials('prac');
-// TIR_main_trials = createTIRTrials('main');
-
-// console.log('TR_prac_trials', TR_prac_trials)
-// // console.log('TR_main_trials', TR_main_trials)
-// // console.log('TIR_prac_trials', TIR_prac_trials)
-// // console.log('TIR_main_trials', TIR_main_trials)
-
-// // 4. 生成试次
-const TR_prac = createTrialTimeline(TR_prac_trials)
-timeline.push(...TR_prac);
+// console.log('随ID随机的按键', key);
+// console.log('图形-标签配对', ShapeLabelMap);
+// console.log('图形-颜色配对', ShapeColorMap);
+// console.log('带颜色的图形-标签配对', ColoredShapeLabelMap);
+// console.log('带颜色的图形-颜色配对', ColoredShapeColorMap);
 
 
+// 4. 生成试次
 
+// 练习阶段
+TR_high_prac_result = createTrials(n=config.n.high, phase='prac', task=config.task.TR);  // 自我与任务有关，高认知负荷
+TR_low_prac_result = createTrials(n=config.n.low, phase='prac', task=config.task.TR);  // 自我与任务有关，低认知负荷
+TIR_high_prac_result = createTrials(n=config.n.high, phase='prac', task=config.task.TIR);  // 自我与任务无关，高认知负荷
+TIR_low_prac_result = createTrials(n=config.n.low, phase='prac', task=config.task.TIR);  // 自我与任务无关，低认知负荷
+
+// 正式实验阶段
+TR_high_main_result = createTrials(n=config.n.high, phase='main', task=config.task.TR);  // 自我与任务有关，高认知负荷
+TR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.task.TR);  // 自我与任务有关，低认知负荷
+TIR_high_main_result = createTrials(n=config.n.high, phase='main', task=config.task.TIR);  // 自我与任务无关，高认知负荷
+TIR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.task.TIR);  // 自我与任务无关，低认知负荷
+
+
+// console.log('TR_high_prac所有试次', TR_high_prac_result.trials)
+// console.log('TR_high_main所有试次', TR_high_main_result.trials)
+// console.log('TR_low_prac所有试次', TR_low_prac_result.trials)
+// console.log('TR_low_main所有试次', TR_low_main_result.trials)
+// console.log('TIR_high_prac所有试次', TIR_high_prac_result.trials)
+// console.log('TIR_high_main所有试次', TIR_high_main_result.trials)
+// console.log('TIR_low_prac所有试次', TIR_low_prac_result.trials)
+// console.log('TIR_low_main所有试次', TIR_low_main_result.trials)
+
+
+// ====================信息采集阶段==================== //
 // // 欢迎语
 // var welcome = {
 //     type: jsPsychHtmlKeyboardResponse,
@@ -583,6 +565,8 @@ timeline.push(...TR_prac);
 // timeline.push(information);
 
 
+// ====================设备调整阶段==================== //
+
 // // 测试被试和显示器之间的距离
 // var chinrest = {
 //     type: jsPsychVirtualChinrest,
@@ -632,6 +616,7 @@ timeline.push(...TR_prac);
 
 
 
+// ====================练习阶段函数==================== //
 
 // // 图形-标签匹配任务n-back指导语
 // var Tr_instr = {
@@ -646,11 +631,11 @@ timeline.push(...TR_prac);
 //         });
 //         return [`
 //             <p style='color:white; font-size: 35px;line-height: 40px;'>您好,欢迎参加本实验！</p>
-//             <p style='color:white; font-size: 35px;line-height: 40px;'>本次实验大约需要X分钟完成。您需要根据提示完成任务，</p>
+//             <p style='color:white; font-size: 35px;line-height: 40px;'>本次实验大约需要50分钟完成。您需要根据提示完成任务，</p>
 //             <p style='color:white; font-size: 35px;line-height: 40px;'>现在您需要学习图形与标签的匹配关系。</p>`,
 //             start + `<div class="box">${tmpI}</div>`,
 //             `<p class='footer' style='font-size: 35px; line-height: 40px;'>当前任务中，屏幕中央将序列呈现图片与标签，</p>
-//             <p class='footer' style='font-size: 35px; line-height: 40px;'>您需要在标签出现时,判断前${n}个图形是否与当前标签匹配，</p>
+//             <p class='footer' style='font-size: 35px; line-height: 40px;'>您需要在标签出现时,判断前${config.n.high}个图形是否与当前标签匹配，</p>
 //       <p class='footer' style='color:white; font-size: 35px;line-height: 40px'>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
 //        <p line-height: 40px>在实验过程中请将您<span style="color: lightgreen;">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
 //             `<p style='color:white; font-size: 35px; line-height: 40px;'>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
@@ -670,889 +655,271 @@ timeline.push(...TR_prac);
 // timeline.push(Tr_instr);
 
 
-
-// ====================下一阶段的目标就是把练习试次跑通！！==================== //
-
-
-
-// // 任务有关条件：练习阶段（呈现带颜色的图形+标签，进行图形标签匹配任务）
-// var TR_prac = {
-//     timeline: [
-//         {   // 单个试次
-//             type: jsPsychPsychophysics,
-//             stimuli: [
-//                 {
-//                     obj_type: 'cross',   // 注视点
-//                     startX: "center",
-//                     startY: "center",
-//                     line_length: 40, // pixels 视角：0.8° x 0.8°
-//                     line_width: 5,
-//                     line_color: 'white',
-//                     show_start_time: 500,
-//                     show_end_time: 1100   // 1100
-//                 },
-//                 {
-//                     obj_type: "image",   // colored_shapes
-//                     file: function () { return jsPsych.timelineVariable("pres_stml")() },
-//                     startX: "center",
-//                     startY: -200,   // 肉眼等距
-//                     scale: 0.7,   // 图片缩小0.7倍
-//                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     show_start_time: 1000,
-//                     show_end_time: 1100,   // 1100
-//                     origin_center: true
-//                 },
-//                 {
-//                     obj_type: 'text',
-//                     file: function () { return jsPsych.timelineVariable("pres_label")() },
-//                     startX: "center",
-//                     startY: 140, //140，图形和文字距离 与加号等距2度
-//                     content: function () {
-//                         return jsPsych.timelineVariable('pres_label', true)();
-//                     },
-//                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
-//                     text_color: 'white',
-//                     show_start_time: 1000,
-//                     show_end_time: 1100,   // 1100
-//                     origin_center: true
-//                 }
-//             ],
-
-//             choices: ['f', 'j'],
-//             response_start_time: 1000,
-//             trial_duration: 2500,
-//             on_start: function () {
-//                 console.log('呈现的标签：', jsPsych.timelineVariable('pres_label', true)());
-//                 console.log('图形-标签对：', ShapeColorMap);
-//                 console.log('图形配对的标签：', jsPsych.timelineVariable("paired_label", true)());
-//                 console.log('正确的按键：', jsPsych.timelineVariable("identify", true)());
-//             },
-//             on_finish: function (data) {
-//                 data.correct_response = jsPsych.timelineVariable("identify", true)();   // 正确按键
-//                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
-//                 data.labels = jsPsych.timelineVariable('pres_label', true)();   // 呈现的标签
-//                 data.shapes = jsPsych.timelineVariable("paired_label", true)();   // 图形配对的标签
-//                 data.pres_colors = jsPsych.timelineVariable("pres_color", true)();   // 呈现的颜色
-//                 data.paired_colors = jsPsych.timelineVariable("paired_color", true)();   // 配对的颜色
-//                 data.ismatch = data.labels == data.shapes;   // 图形与标签是否匹配
-//                 data.condition = "TR_prac";   // 标记为练习阶段
-//                 data.subj_idx = id
-//             }
-//         },
-// {   // 每个试次后反馈
-//     type: jsPsychHtmlKeyboardResponse,
-//         stimulus: function () {
-//             let keypress = jsPsych.data.get().last(1).values()[0].key_press; // 被试按键
-//             let time = jsPsych.data.get().last(1).values()[0].rt;
-//             let trial_correct_response = jsPsych.data.get().last(1).values()[0].correct_response;//该trial正确的按键
-//             if (time > 1500 || time === null) { //大于1500或为null为过慢
-//                 return "<span class='add_' style='color:yellow; font-size: 70px;'> 太慢! </span>"
-//             } else if (time < 200) { //小于两百为过快反应
-//                 return "<span style='color:yellow; font-size: 70px;'>过快! </span>"
-//             } else {
-//                 if (keypress == trial_correct_response) { //如果按键 == 正确按键
-//                     return "<span style='color:GreenYellow; font-size: 70px;'>正确! </span>"
-//                 }
-//                 else {
-//                     return "<span style='color:red; font-size: 70px;'>错误! </span>"
-//                 }
-//             }
-//         },
-
-//     choices: "NO_KEYS",
-//         trial_duration: 300,
-//             data: {
-//         screen_id: "feedback_test"
-//     },
-// }
-//     ],
-//     timeline_variables: [
-//         // 36个试次
-//         // colShapes用于试次呈现；shape用于数据存储图形的身份（自我/朋友/生人）；color用于数据存储图形的颜色；labels用于试次呈现的标签；identify用于试次正确按键
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][0] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][0] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][1] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][2] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][0] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][0] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][1] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][2] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][0] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][0] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][1] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][2] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][0] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][0] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][1] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][2] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][0] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][0] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][1] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][2] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][0] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][0] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][1] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][2] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][0] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][0] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][1] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][2] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][0] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][0] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][1] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][2] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][0] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][0] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][1] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][2] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[1] } },
-//     ],
-//     randomize_order: true,   //6
-//     repetitions: 1,   // 练习重复1次，练习试次36个
-//     on_load: () => {
-//         $("body").css("cursor", "none");
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "default");
-//     }
-// }
-// // 整个练习block反馈
-// var TR_prac_feedback = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: function () {
-//         let trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36); //获取练习阶段所有trial数;需要修改
-//         let correct_trials = trials.filter({
-//             correct: true   // 获取正确的试次
-//         });
-//         let accuracy = Math.round(correct_trials.count() / trials.count() * 100);   //计算正确率
-//         console.log('练习试次数', trials.count())
-//         let rt = Math.round(correct_trials.select('rt').mean());   // 计算平均反应时
-//         return `
-//     <style>
-//         .context { color: white; font-size: 35px; line-height: 40px; }
-//     </style>
-//     <div>
-//         <p class='context'>您正确回答了 ${accuracy}% 的试次。</p>
-//         <p class='context'>您的平均反应时为 ${rt} 毫秒。</p>
-//         <p class='context'>按任意键进入下一页</p>
-//     </div>
-// `;
-//     }
-// }
-// // 任务相关：再次练习指导语
-// var TR_reprac_instr = { //在这里呈现文字回顾，让被试再记一下
-//     type: jsPsychInstructions,
-//     pages: function () {
-//         let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记住下列图形-标签的对应关系，并再次进行练习。</p>",
-//             middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-//             end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：请按 继续 进入练习</p><div>";
-//         let tmpI = "";
-//         view_shape_label.forEach(v => {   // 任务相关条件记忆shape-label
-//             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-//         });
-//         return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
-//             start + `<div class="box">${tmpI}</div>`,
-//             `<p class='footer' style='font-size:35px; line-height:30px;'>您的任务是判断图形与标签是否匹配，</p>
-//       <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">匹配</span>，请按键盘 <span style="color: lightgreen;">${key[0]}键</span></p>
-//       <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">不匹配</span>，请按键盘<span style="color: lightgreen;"> ${key[1]}键</p>
-//       </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
-//             middle + end];
-//     },
-//     show_clickable_nav: true,
-//     button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
-//     button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
-//     on_finish: function () {
-//         $("body").css("cursor", "none");
-//     },
-//     on_load: () => {
-//         $("body").css("cursor", "default");
-//     }
-// }
-// // 任务相关：判断是否需要再次练习
-// var TR_if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，instruction_repractice
-//     timeline: [TR_prac_feedback, TR_reprac_instr],
-//     conditional_function: function (data) {
-//         var trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36);   // 需要修改
-//         var correct_trials = trials.filter({
-//             correct: true
-//         });
-//         var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         if (accuracy >= acc) {   // 比较练习阶段ACC与70%的大小
-//             return false;   //达标则跳过timeline,进入正式实验
-//         } else if (accuracy < acc) { //没达标则进行timeline
-//             return true;
-//         }
-//     }
-// }
-// // 任务相关：循环练习阶段
-// var TR_loop_node = {
-//     timeline: [TR_prac, TR_if_node],
-//     loop_function: function () {
-//         var trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36);   //需要修改
-//         var correct_trials = trials.filter({
-//             correct: true
-//         });
-//         var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         if (accuracy >= acc) {
-//             return false;   // 正确率达标，不循环，执行一次timeline
-//         } else if (accuracy < acc) {    // 不达标，repeat，再执行一次timeline
-//             return true;
-//         }
-//     }
-// }
-// timeline.push(TR_loop_node);
+// 创建单个block时间线
+function Block(condition_result) {
+    return{
+        timeline: createTrialTimeline(condition_result.trials),   
+        on_load: () => {
+            $("body").css("cursor", "none");
+        },
+        on_finish: function () {
+            $("body").css("cursor", "default");
+        }
+    }
+}
 
 
-// // 任务有关条件：进入正式实验指导语
-// var TR_goformal_instr = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: function () {
-//         let trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36);   //需要修改
-//         let correct_trials = trials.filter({
-//             correct: true
-//         });
-//         let accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         let rt = Math.round(correct_trials.select('rt').mean());
-//         // +用于拼接字符串
-//         return "<style>.context{color:white; font-size: 35px; line-height:40px}</style>\
-//                           <div><p class='context'>您正确回答了" + accuracy + "% 的试次。</p >" +
-//             "<p class='context'>您的平均反应时为" + rt + "毫秒。</p >" +
-//             "<p class='context'>恭喜您完成练习。按任意键进入正式实验。</p >" +
-//             "<p style = 'color:lightgreen; font-size: 35px;' >正式实验与练习要求相同，请您尽可能又快又准地进行按键反应</p>" +
-//             "<p class='footer' style='font-size: 22px; line-height:40px;'>请将您左手和右手的<span style='color: lightgreen;'>食指</span>放在电脑键盘的相应键位上进行按键。</p >"
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "none");
-//     }
-// }
-// timeline.push(TR_goformal_instr);
+// 生成练习阶段单个block反馈
+function pracBlockFeedback(condition_result) {
+    return{
+        type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+        let trials = jsPsych.data.get().filter(
+            [{ correct: true }, { correct: false }]
+        ).last(condition_result.aBlockTrials); //一个block内所有试次总数
+        let correct_trials = trials.filter({
+            correct: true   // 获取正确的试次
+        });
+        let accuracy = Math.round(correct_trials.count() / trials.count() * 100);   //计算正确率
+        console.log('练习试次数', trials.count())
+        let rt = Math.round(correct_trials.select('rt').mean());   // 计算平均反应时
+        return `
+    <style>
+        .context { color: white; font-size: 35px; line-height: 40px; }
+    </style>
+    <div>
+        <p class='context'>您正确回答了 ${accuracy}% 的试次。</p>
+        <p class='context'>您的平均反应时为 ${rt} 毫秒。</p>
+        <p class='context'>按任意键进入下一页</p>
+    </div>
+`;
+    }
+    }
+}
 
 
-// // 任务有关条件：正式实验阶段（呈现带颜色的图形+标签，进行图形标签匹配任务）
-// var TR_main = {
-//     timeline: [
-//         {   // 单个试次
-//             type: jsPsychPsychophysics,
-//             stimuli: [
-//                 {
-//                     obj_type: 'cross',   // 注视点
-//                     startX: "center",
-//                     startY: "center",
-//                     line_length: 40, // pixels 视角：0.8° x 0.8°
-//                     line_width: 5,
-//                     line_color: 'white',
-//                     show_start_time: 500,
-//                     show_end_time: 1100   // 1100
-//                 },
-//                 {
-//                     obj_type: "image",   // colored_shapes
-//                     file: function () { return jsPsych.timelineVariable("pres_stml")() },
-//                     startX: "center",
-//                     startY: -200,   // 肉眼等距
-//                     scale: 0.7,   // 图片缩小0.7倍
-//                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     show_start_time: 1000,
-//                     show_end_time: 1100,   // 1100
-//                     origin_center: true
-//                 },
-//                 {
-//                     obj_type: 'text',
-//                     file: function () { return jsPsych.timelineVariable("pres_label")() },
-//                     startX: "center",
-//                     startY: 140, //140，图形和文字距离 与加号等距2度
-//                     content: function () {
-//                         return jsPsych.timelineVariable('pres_label', true)();
-//                     },
-//                     font: `${80}px 'Arial'`, //字体和颜色设置 文字视角：3.6° x 1.6°
-//                     text_color: 'white',
-//                     show_start_time: 1000,
-//                     show_end_time: 1100,   // 1100
-//                     origin_center: true
-//                 }
-//             ],
-
-//             choices: ['f', 'j'],
-//             response_start_time: 1000,
-//             trial_duration: 2500,
-//             on_start: function () {
-//                 console.log('呈现的标签：', jsPsych.timelineVariable('pres_label', true)());
-//                 console.log('图形-标签对：', ShapeColorMap);
-//                 console.log('图形配对的标签：', jsPsych.timelineVariable("paired_label", true)());
-//                 console.log('正确的按键：', jsPsych.timelineVariable("identify", true)());
-//             },
-//             on_finish: function (data) {
-//                 data.correct_response = jsPsych.timelineVariable("identify", true)();   // 正确按键
-//                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
-//                 data.labels = jsPsych.timelineVariable('pres_label', true)();   // 呈现的标签
-//                 data.shapes = jsPsych.timelineVariable("paired_label", true)();   // 图形配对的标签
-//                 data.pres_colors = jsPsych.timelineVariable("pres_color", true)();   // 呈现的颜色
-//                 data.paired_colors = jsPsych.timelineVariable("paired_color", true)();   // 配对的颜色
-//                 data.ismatch = data.labels == data.shapes;   // 图形与标签是否匹配
-//                 data.condition = "TR_main";   // 标记为正式实验阶段
-//                 data.subj_idx = id
-//             }
-//         },
-//         {   // 每个试次后反馈
-//             type: jsPsychHtmlKeyboardResponse,
-//             stimulus: function () {
-//                 let keypress = jsPsych.data.get().last(1).values()[0].key_press; // 被试按键
-//                 let time = jsPsych.data.get().last(1).values()[0].rt;
-//                 let trial_correct_response = jsPsych.data.get().last(1).values()[0].correct_response;//该trial正确的按键
-//                 if (time > 1500 || time === null) { //大于1500或为null为过慢
-//                     return "<span class='add_' style='color:yellow; font-size: 70px;'> 太慢! </span>"
-//                 } else if (time < 200) { //小于两百为过快反应
-//                     return "<span style='color:yellow; font-size: 70px;'>过快! </span>"
-//                 } else {
-//                     if (keypress == trial_correct_response) { //如果按键 == 正确按键
-//                         return "<span style='color:GreenYellow; font-size: 70px;'>正确! </span>"
-//                     }
-//                     else {
-//                         return "<span style='color:red; font-size: 70px;'>错误! </span>"
-//                     }
-//                 }
-//             },
-
-//             choices: "NO_KEYS",
-//             trial_duration: 300,
-//             data: {
-//                 screen_id: "feedback_test"
-//             },
-//         }
-//     ],
-//     timeline_variables: [
-//         // 36个试次
-//         // colShapes用于试次呈现；shape用于数据存储图形的身份（自我/朋友/生人）；color用于数据存储图形的颜色；labels用于试次呈现的标签；identify用于试次正确按键
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][0] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][0] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][1] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[0] }, pres_color: function () { return pres_colors[0] }, paired_color: function () { return paired_colors[0] }, pres_label: function () { return pres_labels[0][2] }, paired_label: function () { return paired_labels[0] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][0] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][0] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][1] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[1] }, pres_color: function () { return pres_colors[1] }, paired_color: function () { return paired_colors[1] }, pres_label: function () { return pres_labels[1][2] }, paired_label: function () { return paired_labels[1] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][0] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][0] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][1] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[2] }, pres_color: function () { return pres_colors[2] }, paired_color: function () { return paired_colors[2] }, pres_label: function () { return pres_labels[2][2] }, paired_label: function () { return paired_labels[2] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][0] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][0] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][1] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[3] }, pres_color: function () { return pres_colors[3] }, paired_color: function () { return paired_colors[3] }, pres_label: function () { return pres_labels[3][2] }, paired_label: function () { return paired_labels[3] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][0] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][0] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][1] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[4] }, pres_color: function () { return pres_colors[4] }, paired_color: function () { return paired_colors[4] }, pres_label: function () { return pres_labels[4][2] }, paired_label: function () { return paired_labels[4] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][0] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][0] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][1] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[5] }, pres_color: function () { return pres_colors[5] }, paired_color: function () { return paired_colors[5] }, pres_label: function () { return pres_labels[5][2] }, paired_label: function () { return paired_labels[5] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][0] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][0] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][1] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[6] }, pres_color: function () { return pres_colors[6] }, paired_color: function () { return paired_colors[6] }, pres_label: function () { return pres_labels[6][2] }, paired_label: function () { return paired_labels[6] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][0] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][0] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][1] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[7] }, pres_color: function () { return pres_colors[7] }, paired_color: function () { return paired_colors[7] }, pres_label: function () { return pres_labels[7][2] }, paired_label: function () { return paired_labels[7] }, identify: function () { return key[1] } },
-
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][0] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][0] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[0] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][1] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[1] } },
-//         { pres_stml: function () { return colored_shapes[8] }, pres_color: function () { return pres_colors[8] }, paired_color: function () { return paired_colors[8] }, pres_label: function () { return pres_labels[8][2] }, paired_label: function () { return paired_labels[8] }, identify: function () { return key[1] } },
-//     ],
-//     randomize_order: true,   //6
-//     repetitions: 3,   // 3, 一个block里有108个trial; 重复n次，总试次为36n
-//     on_load: () => {
-//         $("body").css("cursor", "none");
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "default");
-//     }
-// }
-// // 任务有关条件：阶段性反馈
-// let TR_main_block_feedback = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: function () {
-//         let trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(108);// 108,填入一个block里的trial总数;
-//         let correct_trials = trials.filter({
-//             correct: true
-//         });
-//         let accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         let rt = Math.round(correct_trials.select('rt').mean());
-//         return "<style>.context{color:white; font-size: 35px; line-height:40px}</style>\
-//                           <div><p class='context'>您正确回答了" + accuracy + "% 的试次。</p>" +
-//             "<p class='context'>您的平均反应时为" + rt + "毫秒。</p>" +
-//             "<p class='context'>请按任意键进入休息</p></div>";
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "default"); //鼠标出现
-//     }
-// };
-// // 休息指导语
-// let TR_resid_block_numb = 4;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
-// let TR_main_rest = {
-//     type: jsPsychHtmlButtonResponse,
-//     stimulus: function () {
-//         let totaltrials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         );
-//         return `
-//                     <p>图形-标签匹配任务中，您还剩余${TR_resid_block_numb}组实验</p>
-//                     <p>现在是休息时间，当您结束休息后，您可以点击 结束休息 按钮 继续</p>
-//                     <p>建议休息时间还剩余<span id="iii">60</span>秒</p>`
-//     },
-//     choices: ["结束休息"],
-//     on_load: function () {
-//         $("body").css("cursor", "default");
-//         let tmpTime = setInterval(function () {
-//             $("#iii").text(parseInt($("#iii").text()) - 1);
-//             if (parseInt($("#iii").text()) < 1) {
-//                 $("#iii").parent().text("当前限定休息时间已到达，如果还未到达状态，请继续休息");
-//                 clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
-//             }
-//         }, 1000);
-//         sessionStorage.setItem("tmpInter", tmpTime);
-//     },
-//     on_finish: function () {
-//         // $("body").css("cursor", "none"); //鼠标消失
-//         TR_resid_block_numb -= 1;
-//         $(document.body).unbind();
-//         clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
-
-//     }
-// }
-// // 设置重复进行block
-// var TR_main_repeatblock = [
-//     {
-//         timeline: [TR_main, TR_main_block_feedback, TR_main_rest],
-//         repetitions: 5//5
-//     },
-// ];
-// timeline.push({
-//     timeline: [{
-//         timeline: TR_main_repeatblock,
-
-//     }]
-// });
+// 被试重新回忆联结关系
+var recapInstr = { //在这里呈现文字回顾，让被试再记一下
+    type: jsPsychInstructions,
+    pages: function () {
+        let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记住下列对应关系，并再次进行练习。</p>",
+            middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
+            end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：请按 继续 进入练习</p><div>";
+        let tmpI = "";
+        view_shape_label.forEach(v => {   // 任务相关条件记忆shape-label
+            tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+        });
+        return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
+            start + `<div class="box">${tmpI}</div>`,
+            `<p class='footer' style='font-size: 35px; line-height: 40px;'>当前任务中，屏幕中央将序列呈现图片与标签，</p>
+            <p class='footer' style='font-size: 35px; line-height: 40px;'>您需要在标签出现时,判断前${config.n.high}个图形是否与当前标签匹配，</p>
+      <p class='footer' style='color:white; font-size: 35px;line-height: 40px'>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>            
+      </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
+            middle + end];
+    },
+    show_clickable_nav: true,
+    button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
+    button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
+    on_finish: function () {
+        $("body").css("cursor", "none");
+    },
+    on_load: () => {
+        $("body").css("cursor", "default");
+    }
+}
 
 
-// // 任务无关条件：指导语
-// var TIR_instr = {
-//     type: jsPsychInstructions,
-//     pages: function () {
-//         let start = "<p class='header' style = 'font-size: 35px'>请您记住下列图形-颜色的对应关系:</p>",
-//             middle = "<p class='footer'  style = 'font-size: 35px'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-//             end = "<p style = 'font-size: 35px; line-height: 35px;'>如果您明白了规则：请点击 继续 </p><div>";
-//         // 呈现图形--标签对应关系
-//         let tmpI = "";
-//         view_shape_color.forEach(v => {   //任务无关条件完成图形-颜色匹配
-//             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-//         });
-//         return [
-//             `<p class='header' style = 'font-size: 35px'>恭喜您完成图形-标签匹配任务！</p>
-//             <p style='color:lightgreen; font-size: 35px;'>接下来您将进入颜色匹配任务</p>`,
-//             start + `<div class="box">${tmpI}</div>`,
-//             `<p class='footer' style='font-size: 35px; line-height: 30px;'>在颜色匹配任务中，您的任务是，</p>
-//             <p class='footer' style='font-size: 35px; line-height: 30px;'>判断呈现的图形颜色是否与该图形先前匹配的颜色一致，</p>
-//       <p class='footer' style='color:white; font-size: 35px;'>如果二者<span style="color: lightgreen;">一致</span>，请按键盘 <span style="color: lightgreen; font-size:35px">${key[0]}键</span></p>
-//       <p class='footer' style='color:white; font-size: 35px;'>如果二者<span style="color: lightgreen;">不一致</span>，请按键盘<span style="color: lightgreen; font-size:35px"> ${key[1]}键</p></span>
-//       <p class='footer' style='color:white; font-size: 22px;'>在实验过程中请将您左手与右手的<span style="color: lightgreen;">食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
-//             `<p style='color:white; font-size: 35px; line-height: 30px;'>接下来，您将进入颜色匹配任务的练习部分</p>
-//       <p class='footer' style='color:lightgreen; font-size: 35px;'>请您又快又准地进行按键。</p>
-//       <p style='color:white; font-size: 35px; line-height: 30px;'>通过练习后,您将进入正式实验。</p>
-//       <p class='footer' style='color:white; font-size: 35px;'>正式实验分为5组,每组完成后会有休息时间。</p></span>`,
-//             middle + end];
-//     },
-//     show_clickable_nav: true,
-//     button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
-//     button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
-//     // on_load: () => {
-//     //     console.log('任务无关时间线变量', TIR_timeline_variables)
-//     // },
-// }
-// timeline.push(TIR_instr);
-// // 任务无关条件：练习阶段（呈现带颜色的图形+标签，进行图形标签匹配任务）
-// var TIR_prac = {
-//     timeline: [
-//         {   // 单个试次
-//             type: jsPsychPsychophysics,
-//             stimuli: [
-//                 {
-//                     obj_type: 'cross',   // 注视点
-//                     startX: "center",
-//                     startY: "center",
-//                     line_length: 40, // pixels 视角：0.8° x 0.8°
-//                     line_width: 5,
-//                     line_color: 'white',
-//                     show_start_time: 500,
-//                     show_end_time: 1000   // 1100
-//                 },
-//                 {
-//                     obj_type: "image",   // colored_shapes
-//                     file: function () { return jsPsych.timelineVariable("pres_stml") },
-//                     startX: "center",
-//                     startY: "center",
-//                     scale: 0.7,   // 图片缩小0.7倍
-//                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     show_start_time: 1000,
-//                     show_end_time: 1100,   // 1100
-//                     origin_center: true
-//                 },
-//             ],
-//             choices: ['f', 'j'],
-//             response_start_time: 1000,
-//             trial_duration: 2500,
-//             on_start: function () {
-//                 console.log('呈现的颜色:', jsPsych.timelineVariable('pres_color'));
-//                 console.log('配对的颜色:', jsPsych.timelineVariable('paired_color'));
-//                 console.log('正确按键:', jsPsych.timelineVariable('identify'));
-//             },
-//             on_finish: function (data) {
-//                 data.correct_response = jsPsych.timelineVariable("identify");   // 正确按键
-//                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
-//                 data.shapes = jsPsych.timelineVariable("paired_label");   // 图形配对的标签
-//                 data.pres_colors = jsPsych.timelineVariable("pres_color");   // 呈现的颜色
-//                 data.paired_colors = jsPsych.timelineVariable("paired_color");   // 配对的颜色
-//                 data.ismatch = data.pres_colors == data.paired_colors;   // 呈现的颜色与学习的颜色是否匹配
-//                 data.condition = "TIR_prac";   // 标记为练习阶段
-//                 data.subj_idx = id
-//             }
-//         },
-//         {   // 每个试次后反馈
-//             type: jsPsychHtmlKeyboardResponse,
-//             stimulus: function () {
-//                 let keypress = jsPsych.data.get().last(1).values()[0].key_press; // 被试按键
-//                 let time = jsPsych.data.get().last(1).values()[0].rt;
-//                 let trial_correct_response = jsPsych.data.get().last(1).values()[0].correct_response;//该trial正确的按键
-//                 if (time > 1500 || time === null) { //大于1500或为null为过慢
-//                     return "<span class='add_' style='color:yellow; font-size: 70px;'> 太慢! </span>"
-//                 } else if (time < 200) { //小于两百为过快反应
-//                     return "<span style='color:yellow; font-size: 70px;'>过快! </span>"
-//                 } else {
-//                     if (keypress == trial_correct_response) { //如果按键 == 正确按键
-//                         return "<span style='color:GreenYellow; font-size: 70px;'>正确! </span>"
-//                     }
-//                     else {
-//                         return "<span style='color:red; font-size: 70px;'>错误! </span>"
-//                     }
-//                 }
-//             },
-
-//             choices: "NO_KEYS",
-//             trial_duration: 300,
-//             data: {
-//                 screen_id: "feedback_test"
-//             },
-//         }
-//     ],
-//     timeline_variables: TIR_timeline_variables,   // 12个不同试次
-//     randomize_order: true,   //6
-//     repetitions: 3,   // 3, 需要与任务相关条件练习次数一样，必须设置成3
-//     on_load: () => {
-//         $("body").css("cursor", "none");
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "default");
-//     }
-// }
-// // 任务无关：整个练习block反馈
-// var TIR_prac_feedback = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: function () {
-//         let trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36); //获取练习阶段所有trial数;需要修改
-//         let correct_trials = trials.filter({
-//             correct: true   // 获取正确的试次
-//         });
-//         let accuracy = Math.round(correct_trials.count() / trials.count() * 100);   //计算正确率
-//         console.log('练习试次数', trials.count())
-//         let rt = Math.round(correct_trials.select('rt').mean());   // 计算平均反应时
-//         return `
-//     <style>
-//         .context { color: white; font-size: 35px; line-height: 40px; }
-//     </style>
-//     <div>
-//         <p class='context'>您正确回答了 ${accuracy}% 的试次。</p>
-//         <p class='context'>您的平均反应时为 ${rt} 毫秒。</p>
-//         <p class='context'>按任意键进入下一页</p>
-//     </div>
-// `;
-//     }
-// }
-// // 任务无关：再次练习指导语
-// var TIR_reprac_instr = { //在这里呈现文字回顾，让被试再记一下
-//     type: jsPsychInstructions,
-//     pages: function () {
-//         let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记住下列图形-颜色对应关系，并再次进行练习。</p>",
-//             middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-//             end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：请按 继续 进入练习</p><div>";
-//         let tmpI = "";
-//         view_shape_color.forEach(v => {   // 任务无关条件记忆shape-color
-//             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-//         });
-//         return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
-//             start + `<div class="box">${tmpI}</div>`,
-//             `<p class='footer' style='font-size:35px; line-height:30px;'>您的任务是判断呈现的图形颜色是否与该图形先前匹配的颜色一致，</p>
-//       <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">一致</span>，请按键盘 <span style="color: lightgreen;">${key[0]}键</span></p>
-//       <p class='footer' style='font-size:35px; line-height:30px;'>如果二者<span style="color: lightgreen;">不一致</span>，请按键盘<span style="color: lightgreen;"> ${key[1]}键</p>
-//       </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
-//             middle + end];
-//     },
-//     show_clickable_nav: true,
-//     button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
-//     button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
-//     on_finish: function () {
-//         $("body").css("cursor", "none");
-//     },
-//     on_load: () => {
-//         $("body").css("cursor", "default");
-//     }
-// }
-// // 任务无关：判断是否需要再次练习
-// var TIR_if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，instruction_repractice
-//     timeline: [TIR_prac_feedback, TIR_reprac_instr],
-//     conditional_function: function (data) {
-//         var trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36);   // 36
-//         var correct_trials = trials.filter({
-//             correct: true
-//         });
-//         var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         if (accuracy >= acc) {   // 比较练习阶段ACC与70%的大小
-//             return false;   //达标则跳过timeline,进入正式实验
-//         } else if (accuracy < acc) { //没达标则进行timeline
-//             return true;
-//         }
-//     }
-// }
-// // 任务无关：循环练习阶段
-// var TIR_loop_node = {
-//     timeline: [TIR_prac, TIR_if_node],
-//     loop_function: function () {
-//         var trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36);   //36
-//         var correct_trials = trials.filter({
-//             correct: true
-//         });
-//         var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         if (accuracy >= acc) {
-//             return false;   // 正确率达标，不循环，执行一次timeline
-//         } else if (accuracy < acc) {    // 不达标，repeat，再执行一次timeline
-//             return true;
-//         }
-//     }
-// }
-// timeline.push(TIR_loop_node);
+// 判断是否重新练习
+function reprac_if_node(condition_result){
+    return{
+        timeline: [
+            recapInstr
+        ],
+    conditional_function: function (data) {
+        var trials = jsPsych.data.get().filter(
+            [{ correct: true }, { correct: false }]
+        ).last(condition_result.aBlockTrials);   
+        var correct_trials = trials.filter({
+            correct: true
+        });
+        var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+        if (accuracy >= config.acc) {   // 比较练习阶段ACC与70%的大小
+            return false;   //达标则跳过timeline,进入正式实验
+        } else if (accuracy < config.acc) { //没达标则进行timeline
+            return true;
+        }
+    }
+    }
+}
 
 
-// // 任务无关条件：进入正式实验指导语
-// var TIR_goformal_instr = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: function () {
-//         let trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(36);   //需要修改
-//         let correct_trials = trials.filter({
-//             correct: true
-//         });
-//         let accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         let rt = Math.round(correct_trials.select('rt').mean());
-//         // +用于拼接字符串
-//         return "<style>.context{color:white; font-size: 35px; line-height:40px}</style>\
-//                           <div><p class='context'>您正确回答了" + accuracy + "% 的试次。</p >" +
-//             "<p class='context'>您的平均反应时为" + rt + "毫秒。</p >" +
-//             "<p class='context'>恭喜您完成练习。按任意键进入颜色匹配任务正式实验。</p >" +
-//             "<p style = 'color:lightgreen; font-size: 35px;' >正式实验与练习要求相同，请您尽可能又快又准地进行按键反应</p>" +
-//             "<p class='footer' style='font-size: 22px; line-height:40px;'>请将您左手和右手的<span style='color: lightgreen;'>食指</span>放在电脑键盘的相应键位上进行按键。</p >"
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "none");
-//     }
-// }
-// timeline.push(TIR_goformal_instr);
+// 再次练习循环
+function reprac_loop_node(condition_result){
+    return{
+        timeline: [
+            Block(condition_result),
+            pracBlockFeedback(condition_result), // 单个block反馈
+            reprac_if_node(condition_result)
+        ],
+        loop_function: function () {
+            var trials = jsPsych.data.get().filter(
+                [{ correct: true }, { correct: false }]
+            ).last(condition_result.aBlockTrials);   //需要修改
+            var correct_trials = trials.filter({
+                correct: true
+            });
+            var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+            if (accuracy >= config.acc) {
+                return false;   // 正确率达标，不循环，执行一次timeline
+            } else if (accuracy < config.acc) {    // 不达标，repeat，再执行一次timeline
+                return true;
+            }
+        }
+    }
+
+}
 
 
-// // 任务无关条件：练习阶段（呈现带颜色的图形，进行颜色匹配任务）
-// var TIR_main = {
-//     timeline: [
-//         {   // 单个试次
-//             type: jsPsychPsychophysics,
-//             stimuli: [
-//                 {
-//                     obj_type: 'cross',   // 注视点
-//                     startX: "center",
-//                     startY: "center",
-//                     line_length: 40, // pixels 视角：0.8° x 0.8°
-//                     line_width: 5,
-//                     line_color: 'white',
-//                     show_start_time: 500,
-//                     show_end_time: 1000   // 1100
-//                 },
-//                 {
-//                     obj_type: "image",   // colored_shapes
-//                     file: function () { return jsPsych.timelineVariable("pres_stml") },
-//                     startX: "center",
-//                     startY: "center",
-//                     scale: 0.7,   // 图片缩小0.7倍
-//                     width: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
-//                     show_start_time: 1000,
-//                     show_end_time: 1100,   // 1100
-//                     origin_center: true
-//                 },
-//             ],
-//             choices: ['f', 'j'],
-//             response_start_time: 1000,
-//             trial_duration: 2500,
-//             on_start: function () {
-//                 console.log('呈现的颜色:', jsPsych.timelineVariable('pres_color'));
-//                 console.log('配对的颜色:', jsPsych.timelineVariable('paired_color'));
-//                 console.log('正确按键:', jsPsych.timelineVariable('identify'));
-//             },
-//             on_finish: function (data) {
-//                 data.correct_response = jsPsych.timelineVariable("identify");   // 正确按键
-//                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
-//                 data.shapes = jsPsych.timelineVariable("paired_label");   // 图形配对的标签
-//                 data.pres_colors = jsPsych.timelineVariable("pres_color");   // 呈现的颜色
-//                 data.paired_colors = jsPsych.timelineVariable("paired_color");   // 配对的颜色
-//                 data.ismatch = data.pres_colors == data.paired_colors;   // 呈现的颜色与学习的颜色是否匹配
-//                 data.condition = "TIR_main";   // 标记为正式实验阶段
-//                 data.subj_idx = id
-//             }
-//         },
-//         {   // 每个试次后反馈
-//             type: jsPsychHtmlKeyboardResponse,
-//             stimulus: function () {
-//                 let keypress = jsPsych.data.get().last(1).values()[0].key_press; // 被试按键
-//                 let time = jsPsych.data.get().last(1).values()[0].rt;
-//                 let trial_correct_response = jsPsych.data.get().last(1).values()[0].correct_response;//该trial正确的按键
-//                 if (time > 1500 || time === null) { //大于1500或为null为过慢
-//                     return "<span class='add_' style='color:yellow; font-size: 70px;'> 太慢! </span>"
-//                 } else if (time < 200) { //小于两百为过快反应
-//                     return "<span style='color:yellow; font-size: 70px;'>过快! </span>"
-//                 } else {
-//                     if (keypress == trial_correct_response) { //如果按键 == 正确按键
-//                         return "<span style='color:GreenYellow; font-size: 70px;'>正确! </span>"
-//                     }
-//                     else {
-//                         return "<span style='color:red; font-size: 70px;'>错误! </span>"
-//                     }
-//                 }
-//             },
+// 完整的练习设置：练习+判断是否再次练习
+function createPracticeBlock(condition_result) {
+    console.log(condition_result, '练习阶段开始啦')
+    return [
+        reprac_loop_node(condition_result), // 循环练习阶段
+    ];
+}
+// timeline.push(...createPracticeBlock(TR_high_prac_result)); // TR低难度练习
 
-//             choices: "NO_KEYS",
-//             trial_duration: 300,
-//             data: {
-//                 screen_id: "feedback_test"
-//             },
-//         }
-//     ],
-//     timeline_variables: TIR_timeline_variables,   // 12个不同试次
-//     randomize_order: true,
-//     repetitions: 9,   // 9, 一个block里共有108个试次
-//     on_load: () => {
-//         $("body").css("cursor", "none");
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "default");
-//     }
-// }
-// // 任务无关条件：阶段性反馈
-// let TIR_main_block_feedback = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: function () {
-//         let trials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         ).last(108);// 108
-//         let correct_trials = trials.filter({
-//             correct: true
-//         });
-//         let accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-//         let rt = Math.round(correct_trials.select('rt').mean());
-//         return "<style>.context{color:white; font-size: 35px; line-height:40px}</style>\
-//                           <div><p class='context'>您正确回答了" + accuracy + "% 的试次。</p>" +
-//             "<p class='context'>您的平均反应时为" + rt + "毫秒。</p>" +
-//             "<p class='context'>请按任意键进入休息</p></div>";
-//     },
-//     on_finish: function () {
-//         $("body").css("cursor", "default"); //鼠标出现
-//     }
-// };
-// // 休息指导语
-// let TIR_resid_block_numb = 4;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
-// let TIR_main_rest = {
-//     type: jsPsychHtmlButtonResponse,
-//     stimulus: function () {
-//         let totaltrials = jsPsych.data.get().filter(
-//             [{ correct: true }, { correct: false }]
-//         );
-//         return `
-//                     <p>颜色匹配任务中，您还剩余${TIR_resid_block_numb}组实验</p>
-//                     <p>现在是休息时间，当您结束休息后，您可以点击 结束休息 按钮 继续</p>
-//                     <p>建议休息时间还剩余<span id="iii">60</span>秒</p>`
-//     },
-//     choices: ["结束休息"],
-//     on_load: function () {
-//         $("body").css("cursor", "default");
-//         let tmpTime = setInterval(function () {
-//             $("#iii").text(parseInt($("#iii").text()) - 1);
-//             if (parseInt($("#iii").text()) < 1) {
-//                 $("#iii").parent().text("当前限定休息时间已到达，如果还未到达状态，请继续休息");
-//                 clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
-//             }
-//         }, 1000);
-//         sessionStorage.setItem("tmpInter", tmpTime);
-//     },
-//     on_finish: function () {
-//         // $("body").css("cursor", "none"); //鼠标消失
-//         TIR_resid_block_numb -= 1;
-//         $(document.body).unbind();
-//         clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
-//     }
-// }
-// // 设置重复进行block
-// var TIR_main_repeatblock = [
-//     {
-//         timeline: [TIR_main, TIR_main_block_feedback, TIR_main_rest],
-//         repetitions: 5//5
-//     },
-// ];
-// timeline.push({
-//     timeline: [{
-//         timeline: TIR_main_repeatblock,
 
-//     }]
-// });
+// ====================正式实验阶段函数==================== //
+
+// 进入正式实验指导语
+var Congrats = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <style>
+            .context { color: white; font-size: 35px; line-height: 40px; }
+            .highlight { color: lightgreen; font-size: 35px; }
+            .footer { font-size: 22px; line-height: 40px; }
+        </style>
+        <div>
+            <p class="context">恭喜您完成练习。按任意键进入正式实验。</p>
+            <p class="highlight">正式实验与练习要求相同，请您尽可能又快又准地进行按键反应</p>
+            <p class="footer">请将您左手和右手的食指放在电脑键盘的相应键位上进行按键。</p>
+        </div>
+    `,
+    choices: 'ALL_KEYS',
+    on_finish: function() {
+        $("body").css("cursor", "none");
+    }
+};
+
+// timeline.push(Congrats);
+
+
+// 正式实验单个block反馈
+function mainBlockFeedback(condition_result) {
+    return {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: function () {
+            let trials = jsPsych.data.get().filter(
+                [{ correct: true }, { correct: false }]
+            ).last(condition_result.aBlockTrials);// 填入一个block里的trial总数;
+            console.log('main block 总数', condition_result.aBlockTrials);
+            let correct_trials = trials.filter({
+                correct: true
+            });
+            let accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+            let rt = Math.round(correct_trials.select('rt').mean());
+            return "<style>.context{color:white; font-size: 35px; line-height:40px}</style>\
+                          <div><p class='context'>您正确回答了" + accuracy + "% 的试次。</p>" +
+                "<p class='context'>您的平均反应时为" + rt + "毫秒。</p>" +
+                "<p class='context'>请按任意键进入休息</p></div>";
+        },
+        on_finish: function () {
+            $("body").css("cursor", "default"); //鼠标出现
+        }
+    }
+};
+
+
+// 休息指导语
+let resid_block_numb = 3;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
+let rest = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: function () {
+        let totaltrials = jsPsych.data.get().filter(
+            [{ correct: true }, { correct: false }]
+        );
+        return `
+                    <p>图形-标签匹配任务中，您还剩余${resid_block_numb}组实验</p>
+                    <p>现在是休息时间，当您结束休息后，您可以点击 结束休息 按钮 继续</p>
+                    <p>建议休息时间还剩余<span id="iii">60</span>秒</p>`
+    },
+    choices: ["结束休息"],
+    on_load: function () {
+        $("body").css("cursor", "default");
+        let tmpTime = setInterval(function () {
+            $("#iii").text(parseInt($("#iii").text()) - 1);
+            if (parseInt($("#iii").text()) < 1) {
+                $("#iii").parent().text("当前限定休息时间已到达，如果还未到达状态，请继续休息");
+                clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
+            }
+        }, 1000);
+        sessionStorage.setItem("tmpInter", tmpTime);
+    },
+    on_finish: function () {
+        // $("body").css("cursor", "none"); //鼠标消失
+        resid_block_numb -= 1;
+        $(document.body).unbind();
+        clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
+
+    }
+}
+
+
+// 完整的正式实验设置
+function createMainBlock(condition_result) {
+    console.log(condition_result, '正式实验开始啦')
+    return [
+        {
+            timeline: [
+                Block(condition_result),
+                mainBlockFeedback(condition_result),
+                rest
+            ],
+            repetitions: config.rep_block
+        }
+
+    ];
+}
+// timeline.push(...createMainBlock(TR_high_main_result)); // TR低难度正式实验
+
+
+// 完整的单个任务设置：练习+正式实验
+function createTaskTrials(prac_result, main_result) {
+    return [
+        {
+            timeline: [
+                ...createPracticeBlock(prac_result),
+                Congrats,
+                ...createMainBlock(main_result)
+            ],
+        }
+
+    ];
+}
+
+
+// ====================4种任务的时间线封装==================== //
+timeline.push(...createTaskTrials(prac_result = TR_high_prac_result, main_result = TR_high_main_result)); // TR低难度正式实验
+// timeline.push(...createTaskTrials(prac_result = TR_high_prac_result, main_result = TR_high_main_result)); // TR低难度正式实验
+// timeline.push(...createTaskTrials(prac_result = TIR_high_prac_result, main_result = TIR_high_main_result)); // TR低难度正式实验
+// timeline.push(...createTaskTrials(prac_result = TIR_high_prac_result, main_result = TIR_high_main_result)); // TR低难度正式实验
+
+
+
+
+// ====================下阶段的目标是将4个任务分别封装成独立模块并实现调用顺序随id随机==================== //
 
 
 // // 实验结束语
