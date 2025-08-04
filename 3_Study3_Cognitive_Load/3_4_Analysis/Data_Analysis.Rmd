@@ -21,23 +21,49 @@ pacman::p_load(
 data <- read.csv("exp3_123.csv")
 df <- data%>%
   dplyr::filter(phase != "")%>%
-  dplyr::filter(condition == "TaskRelevant")%>%
+  dplyr::filter(stage == "response" & phase == "main")%>%
   dplyr::select(
     subj_idx,
     # gender,
     # year,
-    condition,
-    cognitive_load,
+    TaskRelevance,
+    CognitiveLoad,
     isMatch,
-    display_label,
-    sequence,
-    target_shape,
-    target_color,
-    target_label,
+    shapeMeaning,
+    nBack_shape,
+    nBack_color,
+    nBack_label,
     correct_response,
     response,
     correct,
     rt,
-    )
+    )%>%
+  mutate(
+    acc = ifelse(correct == "true", 1, 0),
+  )
 ```
+
+
+```{r}
+# 数据自检
+df.check <- df%>%
+        dplyr::group_by(subj_idx, TaskRelevance, CognitiveLoad, isMatch, shapeMeaning) %>%
+        dplyr::summarise(N = length(acc),
+                         N_crrct = sum(acc),
+                         ACC = sum(acc)/length(acc)) %>%
+  
+        dplyr::ungroup()
+
+df.check
+```
+
+```{r}
+result <- df %>% 
+  group_by(nBack_shape) %>% 
+  summarise(Count = n()) %>% 
+  ungroup()
+result
+```
+
+
 

@@ -52,7 +52,6 @@ var ShapeColorMap = new Map();   // 存储图形-颜色对
 var ShapeLabelMap = new Map();   // 存储图形-标签对
 var ColoredShapeLabelMap = new Map();  // 存储带颜色图形-标签对
 var ColoredShapeColorMap = new Map();  // 存储带颜色图形-颜色对
-var colors = ['red', 'green'];   // 颜色列表，可能用不到
 
 
 const config = {
@@ -60,16 +59,15 @@ const config = {
     max_sequence: 5,   // 最大序列长度
     acc: 70,   // 正确率70%才能通过练习
     rep_block: 2, // 4 重复4个block
-    // fixation_duration: 500,
     shape_duration: 500,  // 图形呈现时间
     label_duration: 500,  // 标签呈现时间
     response_window: 2000,  // 反应窗口时间
     feedback_duration: 300,  // 反馈持续时间
     isi: 500,   // 图形间隔
 
-    trialsPerCondition: {
-        prac: 1,   // 3， 练习阶段，每个条件重复3次，共有2*2=4个条件，练习试次12次
-        main: 1,   // 15，正式实验，每个条件重复15次。一个block内每个条件有15个试次，结合4个block，每个条件有60个试次。此处的条件指的是标签和匹配的组合
+    trialsPerCondition: {  // 设置为偶数,方便后期图形颜色的平衡
+        prac: 2,   // 4， 练习阶段，每个条件重复4次，共有2*2=4个条件，练习试次16次
+        main: 2,   // 16，正式实验，每个条件重复16次。一个block内每个条件有16个试次，结合4个block，每个条件有64个试次。此处的条件指的是标签和匹配的组合
     },
 
     n: {
@@ -112,18 +110,26 @@ function getRandomTime() {
     return Math.round(min + (max - min) * Math.random());
 }
 
-// // 输入带颜色的图形,获取该图形配对的标签与颜色（建立带颜色图形与标签的map后就没用了）
-// function getLabelAndColorByRandomShape(coloredPath) {
-//   // 移除文件名中的颜色部分
-//   const seqshape = coloredPath.replace(/[^/]+$/, filename => {
-//     return filename.replace(/^[\w-]+_/, ''); 
-//   });
 
-//   // 根据图形名称获取标签和颜色
-//   seqlabel = ShapeLabelMap.get(seqshape);
-//   seqcolor = ShapeColorMap.get(seqshape);
-//   return {seqlabel, seqcolor};
-// }
+// 获取不匹配条件下呈现的标签
+function getRandomNonMatchingLabel(target) {
+    const availableLabels = config.label_types.filter(l => l !== target);   // 返回非目标标签
+    return availableLabels[Math.floor(Math.random() * availableLabels.length)];   // 返回随机非目标标签
+}
+
+
+// 打乱颜色数组的辅助函数
+function shuffleArray(array) {
+    const newArray = [...array];  // 1. 创建原数组的副本（避免修改原数组）
+    
+    // 2. 从后向前遍历数组
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1)); // 3. 生成随机索引
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]]; // 4. 交换元素
+    }
+    
+    return newArray; // 5. 返回打乱后的数组
+}
 
 
 // 创建TaskRelevance所有试次
@@ -134,8 +140,7 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
     // 存储所有实验条件，实验条件为label_types和is_match的组合，2*2=4
     const allConditions = [];
 
-    if(task === config.task.TR){
-        config.label_types.forEach(labelType => {
+    config.label_types.forEach(labelType => {
         // 匹配试次
         allConditions.push({
             label_type: labelType,
@@ -150,154 +155,168 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
             count: 0
         });
     });
-    }else if(task === config.task.TIR){
-        config.color_types.forEach(colorType => {
-            // 匹配试次
-            allConditions.push({
-                color_type: colorType,
-                is_match: true,
-                count: 0
-            });
 
-            // 不匹配试次
-            allConditions.push({
-                color_type: colorType,
-                is_match: false,
-                count: 0
-            });
-        });
-    }
-    
-    // 计算总试次数
+        // 计算总试次数
     const trialsPerCondition = config.trialsPerCondition[phase];  // 获取练习/正式实验每个条件的重复次数，值为3/15
     const aBlockTrials = trialsPerCondition * allConditions.length;  // 计算练习/正式实验单个block总试次数，值为12/60
 
-    // 生成单个试次，循环至所有试次完成，共12/60次
+    // 2. 为每个条件预生成平衡的颜色池（红绿各半）
+    allConditions.forEach(condition => {        
+        // 生成红绿各半的颜色池（例如：4次 → ['red', 'red', 'green', 'green']）
+        condition.colorPool = [
+            ...Array(trialsPerCondition / 2).fill('red'),
+            ...Array(trialsPerCondition / 2).fill('green')
+        ];
+        
+        // 打乱顺序（避免固定模式）
+        condition.colorPool = shuffleArray(condition.colorPool);  // 颜色池随机化
+        
+    });
+    // console.log("allConditions:", allConditions)
+
+    
+    // 生成单个试次，循环至所有试次完成，共16/64次
     while (trials.length < aBlockTrials) {
         const availableConditions = allConditions.filter(c => c.count < trialsPerCondition);   // 返回未满3/15次重复的所有条件。
         if (availableConditions.length === 0) break;
 
         // 1. 确定试次的实验条件：随机选择一个实验条件
         const randomIndex = Math.floor(Math.random() * availableConditions.length);
-        const condition = availableConditions[randomIndex];   
+        const condition = availableConditions[randomIndex];
 
         // 2. 确定试次的图形序列长度：随机生成图形序列长度
         const seqLength = Math.floor(Math.random() * (config.max_sequence - config.min_sequence + 1)) + config.min_sequence;  // 取值在3-5之间，包括首尾
 
         // 3. 确定试次的目标位置索引
-        const targetIndex = seqLength - n_back;  // 目标位置索引应该不用-1
+        const targetIndex = seqLength - n_back;
 
         // 4. 确定试次中呈现的标签、序列图片、图片对应的标签
         const shapes = [];
         const labels = [];
         const colors = [];
 
-        // 自我与任务有关条件
-        if(task === config.task.TR){
+        // 从颜色池中取出当前试次应该使用的颜色
+        const targetColor = condition.colorPool[condition.count];
+        console.log("现在的条件是", condition)
+        console.log("现在进行到该条件下第", condition.count,"个试次" )
+        console.log("这个试次使用的颜色是", targetColor)
 
-            const displayLabel = condition.label_type;  // 当前试次显示的标签
+        // 自我与任务有关条件
+        if (task === config.task.TR) {
 
             for (let j = 0; j < seqLength; j++) {  // 循环生成所有试次
 
-            if (j === targetIndex) {
-                if (condition.is_match) {
-                    // 目标位置，匹配条件，随机输出一个与标签配对的带颜色图形；
+                if (j === targetIndex) {
+                    // 目标位置呈现的图形
                     const matchShapes = [...ColoredShapeLabelMap.keys()].filter(
-                        key => ColoredShapeLabelMap.get(key) === displayLabel
+                        key => ColoredShapeLabelMap.get(key) === condition.label_type
                     );
-                    seqshape = matchShapes[Math.floor(Math.random() * matchShapes.length)];
-                    shapes.push(seqshape);
 
-                }else {
-                    // 目标位置，不匹配条件，随机输出与标签不配对的带颜色图形；
-                    const mismatchShapes = [...ColoredShapeLabelMap.keys()].filter(
-                        key => ColoredShapeLabelMap.get(key) !== displayLabel
-                    );
-                    seqshape = mismatchShapes[Math.floor(Math.random() * mismatchShapes.length)];
+                    // 根据颜色池中指定的颜色选择图形
+                    const filteredShapes = matchShapes.filter(shape => shape.includes(targetColor));
+                    console.log("目标位置呈现的颜色图形filteredShapes", filteredShapes)
+
+                    
+                    // 如果没有符合条件的图形，则使用所有匹配图形（后备方案）
+                    seqshape = filteredShapes.length > 0 
+                        ? filteredShapes[Math.floor(Math.random() * filteredShapes.length)]
+                        : matchShapes[Math.floor(Math.random() * matchShapes.length)];
+
+                    console.log("目标位置呈现的颜色图形seqshape", seqshape)  
+
+                    // seqshape = matchShapes[Math.floor(Math.random() * matchShapes.length)];
+                    shapes.push(seqshape);
+                } else {
+                    // 非目标位置，随机选择一个图形
+                    seqshape = colored_shapes[Math.floor(Math.random() * colored_shapes.length)];
                     shapes.push(seqshape);
                 }
-            } else {
-                // 非目标位置，随机选择一个图形
-                seqshape = colored_shapes[Math.floor(Math.random() * colored_shapes.length)];
-                shapes.push(seqshape);
+                // 获取序列图形对应的标签
+                seqlabel = ColoredShapeLabelMap.get(seqshape);
+                labels.push(seqlabel);
             }
-            // 获取序列图形对应的标签
-            seqlabel = ColoredShapeLabelMap.get(seqshape);
-            labels.push(seqlabel);  // 获取图形对应的标签
-        }
-
-        // 获取目标位置的图形以及图形对应的标签
-        const targetShape = shapes[targetIndex];
-        const targetLabel = labels[targetIndex];
-
-        // 生成试次数据
-        trials.push({
-            phase: phase,
-            n_back: n_back,
-            task: task,
-            condition_type: condition,
-            sequence: shapes,
-            target_shape: targetShape,
-            target_label: targetLabel,
-            display_label: displayLabel,
-            correct_response: condition.is_match ? key[0] : key[1],
-        });
-    
-    }else if(task === config.task.TIR){
-
-            const displayColor = condition.color_type;
+        } else if (task === config.task.TIR) {
+            const baseshape = Array.from(ShapeLabelMap.keys()).filter(key => ShapeLabelMap.get(key) === condition.label_type);
+            const tmpcolor = ShapeColorMap.get(baseshape[0]).includes('红色') ? 'red' : 'green';
 
             for (let j = 0; j < seqLength; j++) {
-            if (j === targetIndex) {
-                if (condition.is_match) {
-                    // 目标位置，匹配条件，随机输出一个与标签配对的带颜色图形；
-                    const matchShapes = [...ColoredShapeColorMap.keys()].filter(
-                        key => ColoredShapeColorMap.get(key) === displayColor
+
+                if (j === targetIndex) {
+                    const matchShapes = [...ColoredShapeLabelMap.keys()].filter(
+                        key => ColoredShapeLabelMap.get(key) === condition.label_type
                     );
-                    seqshape = matchShapes[Math.floor(Math.random() * matchShapes.length)];
+                    seqshape = condition.is_match ? matchShapes.find(item => item.includes(tmpcolor)) : matchShapes.find(item => !item.includes(tmpcolor));
                     shapes.push(seqshape);
-                }else {
-                    // 目标位置，不匹配条件，随机输出与标签不配对的带颜色图形；
-                    const mismatchShapes = [...ColoredShapeColorMap.keys()].filter(
-                        key => ColoredShapeColorMap.get(key) !== displayColor
-                    );
-                    seqshape = mismatchShapes[Math.floor(Math.random() * mismatchShapes.length)];
+                    // if (condition.is_match) {
+                    //     // 目标位置，匹配条件，随机输出一个与标签配对的带颜色图形；
+                    //     const matchShapes = [...ColoredShapeColorMap.keys()].filter(
+                    //         // key => ColoredShapeColorMap.get(key) === displayColor
+                    //         key => key.includes(ColoredShapeColorMap.get(key))
+                    //     );
+                    //     seqshape = matchShapes[Math.floor(Math.random() * matchShapes.length)];
+                    //     shapes.push(seqshape);
+                    //     // console.log("匹配条件下的图形序列", matchShapes)
+                    //     // console.log("匹配条件下的图形", seqshape)
+                    // }else {
+                    //     // 目标位置，不匹配条件，随机输出与标签不配对的带颜色图形；
+                    //     const mismatchShapes = [...ColoredShapeColorMap.keys()].filter(
+                    //         // key => ColoredShapeColorMap.get(key) !== displayColor
+                    //         key => !key.includes(ColoredShapeColorMap.get(key))
+                    //     );
+                    //     seqshape = mismatchShapes[Math.floor(Math.random() * mismatchShapes.length)];
+                    //     shapes.push(seqshape);
+                    //     // console.log("不匹配条件下的图形序列", mismatchShapes)
+                    //     // console.log("不匹配条件下的图形", seqshape)
+                    // }
+                } else {
+                    // 非目标位置，随机选择一个图形
+                    seqshape = colored_shapes[Math.floor(Math.random() * colored_shapes.length)];
                     shapes.push(seqshape);
                 }
-            } else {
-                // 非目标位置，随机选择一个图形
-                seqshape = colored_shapes[Math.floor(Math.random() * colored_shapes.length)];
-                shapes.push(seqshape);
+                // 获取序列图形对应的标签
+                seqcolor = ColoredShapeColorMap.get(seqshape);
+                colors.push(seqcolor);  // 获取图形对应的标签
             }
-            // 获取序列图形对应的标签
-            seqcolor = ColoredShapeColorMap.get(seqshape);
-            colors.push(seqcolor);  // 获取图形对应的标签
+
+
+
         }
 
-        // 获取目标位置的图形以及图形对应的标签
-        const targetShape = shapes[targetIndex];
-        const targetColor = colors[targetIndex];
+        // 根据匹配情况呈现标签
+        let displayLabel;
+        if (condition.is_match) {
+            displayLabel = condition.label_type; // 匹配试次：显示图形对应的真实标签
+        } else {
+            displayLabel = getRandomNonMatchingLabel(condition.label_type); // 不匹配试次：显示其他标签
+
+        }
+
+        // 目标位置的图形,对应标签/颜色
+        const nBackShape = shapes[targetIndex];
+        const nBackLabel = labels[targetIndex];
+        const nBackColor = colors[targetIndex];
 
         // 生成试次数据
         trials.push({
             phase: phase,
             n_back: n_back,
             task: task,
+            is_match: condition.is_match,
+            shape_meaning: condition.label_type,
             condition_type: condition,
             sequence: shapes,
-            target_shape: targetShape,
-            target_color: targetColor,
-            display_color: displayColor,
+            display_label: displayLabel,
+            nBack_shape: nBackShape,
+            nBack_label: nBackLabel,
+            nBack_color: nBackColor,
             correct_response: condition.is_match ? key[0] : key[1],
         });
-    
-    }
 
         // 更新该条件的计数
         condition.count++;
     }
 
-    return {trials, aBlockTrials};   // 返回试次和单个block的总试次数 
+    return { trials, aBlockTrials };   // 返回试次和单个block的总试次数 
 }
 
 
@@ -345,7 +364,8 @@ function createTrialTimeline(trials) {
                 if (trial.task === config.task.TR) {
                     return `<div style="font-size: 60px;">${trial.display_label}</div>`;
                 } else if (trial.task === config.task.TIR) {
-                    return `<div style="font-size: 60px;">${trial.display_color}</div>`;
+                    return '';
+                    // return `<div style="font-size: 60px;">${trial.display_color}</div>`;
                 }
             },
             choices: ['f', 'j'],
@@ -356,21 +376,22 @@ function createTrialTimeline(trials) {
                 subj_idx: id,
                 phase: trial.phase,
                 stage: 'response',
-                 condition_type: trial.condition_type,
                 TaskRelevance: trial.task,
                 CognitiveLoad: trial.n_back,   // 认知负荷n值
-                isMatch: trial.condition_type.is_match,   // 是否匹配
+                isMatch: trial.is_match,   // 是否匹配
+                shapeMeaning: trial.shape_meaning,
                 display_label: trial.display_label,
-                display_color: trial.display_color,
+                nBack_shape: trial.nBack_shape,
+                nBack_color: trial.nBack_color,
+                nBack_label: trial.nBack_label,
                 sequence: trial.sequence.join(','),
-                target_shape: trial.target_shape,
-                target_color: trial.target_color,
-                target_label: trial.target_label,
+                condition_type: trial.condition_type,
                 correct_response: trial.correct_response
             },
             on_start: function () {
-                console.log('前2个图形是', trial.target_shape);
-                // data.correct_response = trial.correct_response;
+                console.log('试次图形条件是', trial.shape_meaning,)
+                console.log('试次匹配情况是', trial.is_match)
+                console.log('目标位置图形是', trial.nBack_shape);
                 console.log('data.correct_response', trial.correct_response)
             },
             on_finish: function (data) {
@@ -431,8 +452,11 @@ colored_shapes.forEach(coloredShape => {
   const baseShape = coloredShape.replace(/[^/]+$/, filename => {    // 提取基础形状名称（去掉颜色前缀）
     return filename.replace(/^[\w-]+_/, ''); 
   });  
+    const chineseColor = ShapeColorMap.get(baseShape);
+    const englishColor = chineseColor.includes('红色') ? 'red' : 'green';
+
   ColoredShapeLabelMap.set(coloredShape, ShapeLabelMap.get(baseShape));  // 建立带颜色图形与标签的映射
-  ColoredShapeColorMap.set(coloredShape, ShapeColorMap.get(baseShape));  // 建立带颜色图形与颜色的映射
+  ColoredShapeColorMap.set(coloredShape, englishColor);  // 建立带颜色图形与颜色的映射
 
 });
 
@@ -440,11 +464,11 @@ colored_shapes.forEach(coloredShape => {
 // 3. 按被试ID随机按键
 key = permutation(key, 2)[parseInt(id) % 2];// 根据ID随机按键
 
-// console.log('随ID随机的按键', key);
+console.log('随ID随机的按键', key);
 // console.log('图形-标签配对', ShapeLabelMap);
-// console.log('图形-颜色配对', ShapeColorMap);
-// console.log('带颜色的图形-标签配对', ColoredShapeLabelMap);
-// console.log('带颜色的图形-颜色配对', ColoredShapeColorMap);
+console.log('图形-颜色配对', ShapeColorMap);
+console.log('带颜色的图形-标签配对', ColoredShapeLabelMap);
+console.log('带颜色的图形-颜色配对', ColoredShapeColorMap);
 
 
 // 4. 生成试次
@@ -462,14 +486,6 @@ TIR_high_main_result = createTrials(n=config.n.high, phase='main', task=config.t
 TIR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.task.TIR);  // 自我与任务无关，低认知负荷
 
 
-// console.log('TR_high_prac所有试次', TR_high_prac_result.trials)
-// console.log('TR_high_main所有试次', TR_high_main_result.trials)
-// console.log('TR_low_prac所有试次', TR_low_prac_result.trials)
-// console.log('TR_low_main所有试次', TR_low_main_result.trials)
-// console.log('TIR_high_prac所有试次', TIR_high_prac_result.trials)
-// console.log('TIR_high_main所有试次', TIR_high_main_result.trials)
-// console.log('TIR_low_prac所有试次', TIR_low_prac_result.trials)
-// console.log('TIR_low_main所有试次', TIR_low_main_result.trials)
 
 
 // ====================信息采集阶段==================== //
@@ -484,7 +500,7 @@ var welcome = {
     `,
     choices: "ALL_KEYS",
 };
-// timeline.push(welcome);
+timeline.push(welcome);
 
 
 // 基本信息指导语
@@ -568,92 +584,60 @@ var information = {
 
 // ====================设备调整阶段==================== //
 
-// // 测试被试和显示器之间的距离
-// var chinrest = {
-//     type: jsPsychVirtualChinrest,
-//     blindspot_reps: 3,
-//     resize_units: "deg",
-//     pixels_per_unit: 50,
-//     //SOS，改
-//     item_path: '../img/card.png',
-//     adjustment_prompt: function () {
-//         // let 类似于var 声明对象为变量，常用let而不是var
-//         let html = `<p style = "font-size: 28px">首先，我们将快速测量您的显示器上像素到厘米的转换比率。</p>`;
-//         html += `<p style = "font-size: 28px">请您将拿出一张真实的银行卡放在屏幕上方，单击并拖动图像的右下角，直到它与屏幕上的信用卡大小相同。</p>`;
-//         html += `<p style = "font-size: 28px">您可以使用与银行卡大小相同的任何卡，如会员卡或驾照，如果您无法使用真实的卡，可以使用直尺测量图像宽度至85.6毫米。</p>`;
-//         html += `<p style = "font-size: 28px"> 如果对以上操作感到困惑，请参考这个视频： <a href='https://www.naodao.com/public/stim_calibrate.mp4' target='_blank' style='font-size:24px'>参考视频</a></p>`;
-//         return html
-//     },
-//     blindspot_prompt: function () {
-//         // <br>为换行标签，<a href >为超链接标签
-//         return `<p style="text-align:left">现在，我们将快速测量您和屏幕之间的距离：<br>
-//       请把您的左手放在 空格键上<br>
-//       请用右手遮住右眼<br>
-//       请用您的左眼专注于黑色方块。将注意力集中在黑色方块上。<br>
-//       如果您已经准备好了就按下 空格键 ，这时红色的球将从右向左移动，并将消失。当球一消失，就请再按空格键<br>
-//       如果对以上操作感到困惑，请参考这个视频：<a href='https://www.naodao.com/public/stim_calibrate.mp4' target='_blank' style='font-size:24px'>参考视频</a><br>
-//       <a style="text-align:center">准备开始时，请按空格键。</a></p>`
-//     },
-//     blindspot_measurements_prompt: `剩余测量次数：`,
-//     on_finish: function (data) {
-//         console.log(data)
-//     },
-//     redo_measurement_button_label: `还不够接近，请重试`,
-//     blindspot_done_prompt: `是的`,
-//     adjustment_button_prompt: `图像大小对准后，请单击此处`,
-//     viewing_distance_report: `<p>根据您的反应，您坐在离屏幕<span id='distance-estimate' style='font-weight: bold;'></span> 的位置。<br>这大概是对的吗？</p> `,
-// };
+// 测试被试和显示器之间的距离
+var chinrest = {
+    type: jsPsychVirtualChinrest,
+    blindspot_reps: 3,
+    resize_units: "deg",
+    pixels_per_unit: 50,
+    item_path: '../img/card.png',
+    adjustment_prompt: function () {
+        // let 类似于var 声明对象为变量，常用let而不是var
+        let html = `<p style = "font-size: 28px">首先，我们将快速测量您的显示器上像素到厘米的转换比率。</p>`;
+        html += `<p style = "font-size: 28px">请您将拿出一张真实的银行卡放在屏幕上方，单击并拖动图像的右下角，直到它与屏幕上的信用卡大小相同。</p>`;
+        html += `<p style = "font-size: 28px">您可以使用与银行卡大小相同的任何卡，如会员卡或驾照，如果您无法使用真实的卡，可以使用直尺测量图像宽度至85.6毫米。</p>`;
+        html += `<p style = "font-size: 28px"> 如果对以上操作感到困惑，请参考这个视频： <a href='https://www.naodao.com/public/stim_calibrate.mp4' target='_blank' style='font-size:24px'>参考视频</a></p>`;
+        return html
+    },
+    blindspot_prompt: function () {
+        // <br>为换行标签，<a href >为超链接标签
+        return `
+         <p style="text-align: left; font-size: 28px;">
+         现在，我们将快速测量您和屏幕之间的距离：<br>
+         请把您的左手放在 空格键上<br>
+         请用右手遮住右眼<br>
+         请用您的左眼专注于黑色方块。将注意力集中在黑色方块上。<br>
+         如果您已经准备好了就按下 空格键 ，这时红色的球将从右向左移动，并将消失。当球一消失，就请再按空格键<br>
+         如果对以上操作感到困惑，请参考这个视频：
+         <a href='https://www.naodao.com/public/stim_calibrate.mp4' target='_blank' style='font-size:24px'>参考视频</a><br>
+         <a style="text-align:center">准备开始时，请按空格键。</a>
+         </p>
+         `
+    },
+    blindspot_measurements_prompt: `剩余测量次数：`,
+    on_finish: function (data) {
+        console.log(data)
+    },
+    redo_measurement_button_label: `还不够接近，请重试`,
+    blindspot_done_prompt: `是的`,
+    adjustment_button_prompt: `图像大小对准后，请单击此处`,
+    viewing_distance_report: `<p>根据您的反应，您距离屏幕<span id='distance-estimate' style='font-weight: bold;'></span> <br>这大概是对的吗？</p> `,
+};
 // timeline.push(chinrest)
 
 
-// // 进入全屏
-// var fullscreen_trial = {
-//     type: jsPsychFullscreen,
-//     fullscreen_mode: true,
-//     message: "<p><span class='add_' style='color:white; font-size: 35px;'> 实验需要全屏模式，实验期间请勿退出全屏。 </span></p >",
-//     button_label: " <span class='add_' style='color:black; font-size: 20px;'> 点击这里进入全屏</span>"
-// }
+// 进入全屏
+var fullscreen_trial = {
+    type: jsPsychFullscreen,
+    fullscreen_mode: true,
+    message: "<p><span class='add_' style='color:white; font-size: 35px;'> 实验需要全屏模式，实验期间请勿退出全屏。 </span></p >",
+    button_label: " <span class='add_' style='color:black; font-size: 20px;'> 点击这里进入全屏</span>"
+}
 // timeline.push(fullscreen_trial);
 
 
 
 // ====================练习阶段函数==================== //
-
-// // 图形-标签匹配任务n-back指导语
-// var Tr_instr = {
-//     type: jsPsychInstructions,
-//     pages: function () {
-//         let start = "<p class='header' style = 'font-size: 35px'>请您记住下列图形-标签的对应关系:</p>",
-//             middle = "<p class='footer'  style = 'font-size: 35px'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-//             end = "<p style = 'font-size: 35px; line-height: 30px;'>如果您记住了三个对应关系及按键规则，请点击 继续 </span></p><div>";
-//         let tmpI = "";
-//         view_shape_label.forEach(v => {   // 呈现图形标签对应关系
-//             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-//         });
-//         return [`
-//             <p style='color:white; font-size: 35px;line-height: 40px;'>您好,欢迎参加本实验！</p>
-//             <p style='color:white; font-size: 35px;line-height: 40px;'>本次实验大约需要50分钟完成。您需要根据提示完成任务，</p>
-//             <p style='color:white; font-size: 35px;line-height: 40px;'>现在您需要学习图形与标签的匹配关系。</p>`,
-//             start + `<div class="box">${tmpI}</div>`,
-//             `<p class='footer' style='font-size: 35px; line-height: 40px;'>当前任务中，屏幕中央将序列呈现图片与标签，</p>
-//             <p class='footer' style='font-size: 35px; line-height: 40px;'>您需要在标签出现时,判断前${config.n.high}个图形是否与当前标签匹配，</p>
-//       <p class='footer' style='color:white; font-size: 35px;line-height: 40px'>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
-//        <p line-height: 40px>在实验过程中请将您<span style="color: lightgreen;">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
-//             `<p style='color:white; font-size: 35px; line-height: 40px;'>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
-//       <p style='color:white; font-size: 35px; line-height: 40px;'>通过练习后，您将进入正式实验。</p></span>`,
-//             middle + end];
-//     },
-//     show_clickable_nav: true,
-//     button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
-//     button_label_next: " <span class='add_' style='color:black; font-size: 20px; '> 继续</span>",
-//     on_load: () => {
-//         $("body").css("cursor", "default");
-//     },// 开始时鼠标出现
-//     on_finish: function () {
-//         $("body").css("cursor", "none");
-//     } //结束时鼠标消失
-// }
-// timeline.push(Tr_instr);
 
 // 图形-标签匹配任务n-back指导语
 function task_instr(condition_result) {
@@ -665,29 +649,40 @@ function task_instr(condition_result) {
                 end = "<p>如果您记住了对应关系及按键规则，请点击 继续</p>";
             let tmpI = "";
             let nBack;
-            if(condition_result.trials[0].task === 'TaskRelevant'){
-                view_shape_label.forEach(v => {   // 呈现图形标签对应关系
-                tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-            })}else if(condition_result.trials[0].task === 'TaskIRRelevant'){
-                view_shape_color.forEach(v => {   // 呈现图形标签对应关系
-                tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-                })
-            }
-            if(condition_result.trials[0].n_back >1){
+            if (condition_result.trials[0].n_back > 1) {
                 nBack = config.n.high
-            }else if (condition_result.trials[0].n_back <=1){
+            } else if (condition_result.trials[0].n_back <= 1) {
                 nBack = config.n.low
-            }
-            console.log("当前任务是", condition_result, "当前呈现配对关系是", tmpI, "当前nback数是", nBack)
-            return [
-                start + `<div class="box">${tmpI}</div>`,
-                `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
+            };
+            if (condition_result.trials[0].task === 'TaskRelevant') {
+                view_shape_label.forEach(v => {   // 呈现图形标签对应关系
+                    tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+                });
+                return [
+                    start + `<div class="box">${tmpI}</div>`,
+                    `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
                  <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配, </span></p>
                  <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
                  <p style ='font-size: 20px';>在实验过程中请将您<span style="color: lightgreen; ">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
-                `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
+                    `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
                  <p>通过练习后，您将进入正式实验。</p></span>`,
-                middle + end];
+                    middle + end];
+
+            } else if (condition_result.trials[0].task === 'TaskIRRelevant') {
+                view_shape_color.forEach(v => {   // 呈现图形颜色对应关系
+                    tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+                })
+                return [
+                    start + `<div class="box">${tmpI}</div>`,
+                    `<p>当前任务中，屏幕中央将呈现图形序列，</p>
+                 <p><span style="color: lightgreen;">您需要在出现空屏时,判断空屏前${nBack}个图形的颜色与形状是否匹配, </span></p>
+                 <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
+                 <p style ='font-size: 20px';>在实验过程中请将您<span style="color: lightgreen; ">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
+                    `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
+                 <p>通过练习后，您将进入正式实验。</p></span>`,
+                    middle + end];
+            }
+
         },
         show_clickable_nav: true,
         button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
@@ -700,8 +695,6 @@ function task_instr(condition_result) {
         } //结束时鼠标消失
     }
 }
-    
-// timeline.push(Tr_instr);
 
 
 // 创建单个block时间线
@@ -747,36 +740,6 @@ function pracBlockFeedback(condition_result) {
 }
 
 
-// // 被试重新回忆联结关系
-// var recapInstr = { //在这里呈现文字回顾，让被试再记一下
-//     type: jsPsychInstructions,
-//     pages: function () {
-//         let start = "<p class='header' style='font-size:35px; line-height:30px;'>请您努力记住下列对应关系，并再次进行练习。</p>",
-//             middle = "<p class='footer' style='font-size:35px; line-height:30px;'>如果对本实验还有不清楚之处，请立即向实验员咨询。</p>",
-//             end = "<p style='font-size:35px; line-height:30px;'>如果您明白了规则：请按 继续 进入练习</p><div>";
-//         let tmpI = "";
-//         view_shape_label.forEach(v => {   // 任务相关条件记忆shape-label
-//             tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-//         });
-//         return ["<p class='header' style='font-size:35px; line-height:30px;'>您的正确率未达到进入正式实验的要求。</p>",
-//             start + `<div class="box">${tmpI}</div>`,
-//             `<p class='footer' style='font-size: 35px; line-height: 40px;'>当前任务中，屏幕中央将序列呈现图片与标签，</p>
-//             <p class='footer' style='font-size: 35px; line-height: 40px;'>您需要在标签出现时,判断前${config.n.high}个图形是否与当前标签匹配，</p>
-//       <p class='footer' style='color:white; font-size: 35px;line-height: 40px'>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>            
-//       </span><p class='footer' style='color: lightgreen; font-size:35px; line-height:30px;'>请您又快又准地进行按键。</p></span>`,
-//             middle + end];
-//     },
-//     show_clickable_nav: true,
-//     button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
-//     button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
-//     on_finish: function () {
-//         $("body").css("cursor", "none");
-//     },
-//     on_load: () => {
-//         $("body").css("cursor", "default");
-//     }
-// }
-
 // 被试重新回忆联结关系
 function recapInstr(condition_result) {
     return {
@@ -787,29 +750,41 @@ function recapInstr(condition_result) {
                 end = "<p>如果您明白了规则：请按 继续 进入练习</p>";
             let tmpI = "";
             let nBack;
-            if(condition_result.trials[0].task === 'TaskRelevant'){
-                view_shape_label.forEach(v => {   // 呈现图形标签对应关系
-                tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-            })}else if(condition_result.trials[0].task === 'TaskIRRelevant'){
-                view_shape_color.forEach(v => {   // 呈现图形标签对应关系
-                tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
-                })
-            }
-            if(condition_result.trials[0].n_back >1){
+            if (condition_result.trials[0].n_back > 1) {
                 nBack = config.n.high
-            }else if (condition_result.trials[0].n_back <=1){
+            } else if (condition_result.trials[0].n_back <= 1) {
                 nBack = config.n.low
-            }
-            console.log("当前任务是", condition_result, "当前呈现配对关系是", tmpI, "当前nback数是", nBack)
-            return [
-                "<p>您的正确率未达到进入正式实验的要求。</p>",
-                start + `<div class="box">${tmpI}</div>`,
-                `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
+            };
+            if (condition_result.trials[0].task === 'TaskRelevant') {
+                view_shape_label.forEach(v => {   // 呈现图形标签对应关系
+                    tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+                });
+                return [
+                    "<p>您的正确率未达到进入正式实验的要求。</p>",
+                    start + `<div class="box">${tmpI}</div>`,
+                    `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
                  <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配，</span></p>
                  <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
                  <p><span style="color: lightgreen;">请您又快又准地进行按键。</span></p>`,
-                middle + end];
-            },
+                    middle + end];
+
+            } else if (condition_result.trials[0].task === 'TaskIRRelevant') {
+                view_shape_color.forEach(v => {   // 呈现图形标签对应关系
+                    tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
+                });
+                return [
+                    "<p>您的正确率未达到进入正式实验的要求。</p>",
+                    start + `<div class="box">${tmpI}</div>`,
+                    `<p>当前任务中，屏幕中央将呈现图形序列，</p>
+                 <p><span style="color: lightgreen;">您需要在出现空屏时,判断空屏前${nBack}个图形的颜色与形状是否匹配, </span></p>
+                 <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
+                 <p><span style="color: lightgreen;">请您又快又准地进行按键。</span></p>`,
+                    middle + end];
+            }
+
+            // console.log("当前任务是", condition_result, "当前呈现配对关系是", tmpI, "当前nback数是", nBack)
+
+        },
         show_clickable_nav: true,
         button_label_previous: " <span class='add_' style='color:black; font-size: 20px;'> 返回</span>",
         button_label_next: " <span class='add_' style='color:black; font-size: 20px;'> 继续</span>",
@@ -881,7 +856,6 @@ function createPracticeBlock(condition_result) {
         reprac_loop_node(condition_result), // 循环练习阶段
     ];
 }
-// timeline.push(...createPracticeBlock(TR_high_prac_result)); // TR低难度练习
 
 
 // ====================正式实验阶段函数==================== //
@@ -906,8 +880,6 @@ var Congrats = {
         $("body").css("cursor", "none");
     }
 };
-
-// timeline.push(Congrats);
 
 
 // 正式实验单个block反馈
@@ -937,67 +909,98 @@ function mainBlockFeedback(condition_result) {
 
 
 // 休息指导语
-let resid_block_numb = 3;// 此处填入总block数量-1，比如总数量是3，那么值就需要是2
-let rest = {
-    type: jsPsychHtmlButtonResponse,
-    stimulus: function () {
-        let totaltrials = jsPsych.data.get().filter(
-            [{ correct: true }, { correct: false }]
-        );
-        return `
+function rest(resid_block_numb) {
+    return {
+        type: jsPsychHtmlButtonResponse,
+        stimulus: function () {
+            let totaltrials = jsPsych.data.get().filter(
+                [{ correct: true }, { correct: false }]
+            );
+            return `
                     <p>当前任务中，您还剩余${resid_block_numb}组实验</p>
                     <p>现在是休息时间，当您结束休息后，您可以点击 结束休息 按钮 继续</p>
                     <p>建议休息时间还剩余<span id="iii">60</span>秒</p>`
-    },
-    choices: ["结束休息"],
-    on_load: function () {
-        $("body").css("cursor", "default");
-        let tmpTime = setInterval(function () {
-            $("#iii").text(parseInt($("#iii").text()) - 1);
-            if (parseInt($("#iii").text()) < 1) {
-                $("#iii").parent().text("当前限定休息时间已到达，如果还未到达状态，请继续休息");
-                clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
-            }
-        }, 1000);
-        sessionStorage.setItem("tmpInter", tmpTime);
-    },
-    on_finish: function () {
-        // $("body").css("cursor", "none"); //鼠标消失
-        resid_block_numb -= 1;
-        $(document.body).unbind();
-        clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
+        },
+        choices: ["结束休息"],
+        on_load: function () {
+            $("body").css("cursor", "default");
+            let tmpTime = setInterval(function () {
+                $("#iii").text(parseInt($("#iii").text()) - 1);
+                if (parseInt($("#iii").text()) < 1) {
+                    $("#iii").parent().text("当前限定休息时间已到达，如果还未到达状态，请继续休息");
+                    clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
+                }
+            }, 1000);
+            sessionStorage.setItem("tmpInter", tmpTime);
+        },
+        on_finish: function () {
+            // $("body").css("cursor", "none"); //鼠标消失
+            resid_block_numb -= 1;
+            $(document.body).unbind();
+            clearInterval(parseInt(sessionStorage.getItem("tmpInter")));
 
+        }
     }
 }
+
+function TaskTransitionMessage(taskNumber) {
+    return {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: function () {
+            if (taskNumber <= 3) {
+                return `
+            <div style="text-align: center; color: white; font-size: 35px; line-height: 40px;">
+                <p>恭喜您完成任务${taskNumber}, 接下来您将进入任务${taskNumber + 1}。</p>
+                <p style="color: lightgreen; margin-top: 30px;">按任意键继续</p>
+            </div>
+        `;
+            } else{
+                return `
+            <div style="text-align: center; color: white; font-size: 35px; line-height: 40px;">
+                <p>恭喜您完成任务${taskNumber}!</p>
+                <p style="color: lightgreen; margin-top: 30px;">按任意键继续</p>
+            </div>
+        `;
+            }
+        },
+        choices: "ALL_KEYS",
+    };
+}
+    
 
 
 // 完整的正式实验设置
 function createMainBlock(condition_result) {
+    let resid_block_numb = config.rep_block - 1
+    
     console.log(condition_result, '正式实验开始啦')
+    
     return [
         {
             timeline: [
                 Block(condition_result),
-                mainBlockFeedback(condition_result),
-                rest
+                // mainBlockFeedback(condition_result),
+                rest(resid_block_numb),
+
             ],
             repetitions: config.rep_block
         }
 
     ];
 }
-// timeline.push(...createMainBlock(TR_high_main_result)); // TR低难度正式实验
 
 
 // 完整的单个任务设置：练习+正式实验
-function createTaskTrials(prac_result, main_result) {
+function createTaskTrials(prac_result, main_result, taskNumber) {
+    console.log('现在是第',taskNumber,"个任务")
     return [
         {
             timeline: [
                 task_instr(prac_result),
                 ...createPracticeBlock(prac_result),
                 Congrats,
-                ...createMainBlock(main_result)
+                ...createMainBlock(main_result),
+                TaskTransitionMessage(taskNumber)
             ],
         }
 
@@ -1005,15 +1008,18 @@ function createTaskTrials(prac_result, main_result) {
 }
 
 
+// 设置任务执行顺序根据被试ID随机
 
-// 定义四个基本任务
+// 1.定义四个基本任务
 const task_TR_high = { name: 'TR_high', prac: TR_high_prac_result, main: TR_high_main_result };
 const task_TR_low = { name: 'TR_low', prac: TR_low_prac_result, main: TR_low_main_result };
 const task_TIR_high = { name: 'TIR_high', prac: TIR_high_prac_result, main: TIR_high_main_result };
 const task_TIR_low = { name: 'TIR_low', prac: TIR_low_prac_result, main: TIR_low_main_result };
 
-
+// 2. 任务顺序根据id随机
 const orderId = id % 4;
+
+// 3. 设置任务顺序：先进行TR建立自我图形，再进行TIR
 const taskSequence = [
     // TR组的顺序
     orderId & 1 ? task_TR_low : task_TR_high,
@@ -1027,21 +1033,24 @@ const taskSequence = [
 console.log("被试的顺序ID是", orderId)
 console.log("被试抽中的顺序是", taskSequence)
 
-taskSequence.forEach(task => {
-    timeline.push(...createTaskTrials(task.prac, task.main));
+// 4. 按照既定顺序执行4个任务timeline
+taskSequence.forEach((task, index) => {
+    let taskNumber = index +1
+    timeline.push(...createTaskTrials(task.prac, task.main, taskNumber));
 });
 
-// // 实验结束语
-// var finish = {
-//     type: jsPsychHtmlKeyboardResponse,
-//     stimulus: `
-//         <p>感谢您参加我们的实验，请<span style="color: yellow;">按任意键开始下载数据</span>，并通知实验员。</p>
-//         <p>感谢您的配合！</p>`,
-//     choices: "ALL_KEYS",
-// };
-// timeline.push(finish);
+
+// 实验结束语
+var finish = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <p>感谢您参加我们的实验，请<span style="color: yellow;">按任意键开始下载数据</span>，并通知实验员。</p>
+        <p>感谢您的配合！</p>`,
+    choices: "ALL_KEYS",
+};
+timeline.push(finish);
 
 
-// 运行实验
+// 运行整个实验
 jsPsych.run(timeline);
 
