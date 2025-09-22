@@ -31,7 +31,8 @@ pacman::p_load(
   'here',         # 选择路径
   'tidyverse',    # 数据处理
   'ggplot2',      # 数据可视化
-  'BayesFactor'   # 计算贝叶斯因子
+  'BayesFactor',  # 计算贝叶斯因子
+  'bayestestR'    # 用于计算包含概率
   )
 
 set.seed(1)   # 随机种子，确保结果可复现
@@ -39,33 +40,86 @@ set.seed(1)   # 随机种子，确保结果可复现
 
 # 载入预处理后数据
 ```{r warning=FALSE}
-df <- bruceR::import(here::here("1_Study1_Task_Target",'1_4_Analysis', 'exp1_classify_rt_jasp.csv'))
+df <- bruceR::import(here::here("2_Study2_Task_Relevence",'2_4_Analysis', 'exp2_rt_si.csv'))
 df
 ```
 
 # 数据预处理
 ```{r}
-# 宽转长
-df.long <- df %>%
-  tidyr::pivot_longer(
-    cols = c(朋友, 生人, 自我),
-    names_to = "shape",
-    values_to = "rt"
-  ) %>%
-  dplyr::mutate(
-    condition = factor(condition, levels = c("classify_self", "classify_friend", "classify_stranger")),
-    shape = factor(shape, levels = c("自我", "朋友", "生人")),
-    subj_idx = factor(subj_idx)
-  )
-df.long
+# # 宽转长
+# df_long <- pivot_longer(
+#   df,
+#   cols = c("朋友", "生人", "自我"),              # 选择需要转换的列
+#   names_to = "shapes",    # 新列名（存储原列名）
+#   values_to = "RT_m",  # 新列名（存储原列的值）
+# )
+# 
+# df_long <- df_long %>%
+#   dplyr::mutate(
+#     condition = factor(condition, levels = c("classify_self", "classify_friend", "classify_stranger")),
+#     shapes = factor(shapes, levels = c("自我", "朋友", "生人")),
+#     subj_idx = factor(subj_idx)
+#   )
+# df_long
 ```
 
-# 参考JASP源码中用到的函数及参数设定
 ```{r}
-# 计算不同模型的BF：
+df <- df %>%
+  dplyr::mutate(
+    condition = factor(condition, levels = c("TR_main", "TIR_main")),
+    shapes = factor(shapes, levels = c("自我", "朋友", "生人")),
+    ismatch = case_when(
+      ismatch == "1" ~ "match",
+      ismatch == "0" ~ "mismatch",
+    ),
+    ismatch = factor(ismatch, levels = c("match", "mismatch")),
+    subj_idx = factor(subj_idx)
+  )
+df
+```
+
+```{r}
+# ## try1: 和jasp不一样，数量级都不一样
+# 
+# # 构建完整模型空间
+# bf_full <- BayesFactor::generalTestBF(
+#   formula = RT_m ~ condition*shapes*ismatch + subj_idx,
+#   data = df,
+#   whichRandom = "subj_idx",  # 没有随机变量
+#   rscaleFixed = 0.5,    # JASP 默认先验
+#   progress = FALSE,
+# )
+# 
+# # 计算包含贝叶斯因子
+# inclusion_bf <- bayestestR::bayesfactor_inclusion(bf_full, match_models = TRUE)
+# 
+# # 查看结果
+# print(inclusion_bf)
+```
+
+
+
+# 参考JASP源码中用到的函数及参数设定
+
+```{r}
+
+# try2: 数量级相差不多，判断结果一致；AI多次给的解决方案都是这个
+
+# 计算不同模型的BF10：3个变量会有19个模型，主效应（3+3+1）、二阶交互（3+3+3+1）、三阶交互（1）、零模型
+
+# 零模型：截距+随机斜率,lmBF在设定whichRandom参数时，自动将BF分母设为如下null_model
+# null_model <- BayesFactor::lmBF(
+#   formula = RT_m ~ 1 + subj_idx,
+#   data = df,
+#   whichRandom = "subj_idx",
+#   progress = FALSE,
+#   posterior = FALSE,
+# )
+
+# 输出全模型（主效应+二阶交互+三阶交互）与null模型比较结果BF10
 full_model <- BayesFactor::lmBF(
-  formula = rt ~ condition*shape + subj_idx,
-  data = df.long,
+  formula = RT_m ~ condition*shapes*ismatch + subj_idx,
+  data = df,
   whichRandom = "subj_idx",
   progress = FALSE,
   posterior = FALSE,
@@ -76,47 +130,167 @@ full_model <- BayesFactor::lmBF(
   iterations= 10000
   )
 
-null_model <- BayesFactor::lmBF(
-  formula = rt ~ 1 + subj_idx,
-  data = df.long,
+# 去除三阶交互效应的模型（主效应+二阶交互）
+model_no_3way <- BayesFactor::lmBF(
+  formula = RT_m ~  condition + shapes + ismatch + condition:shapes + condition:ismatch + shapes:ismatch + subj_idx,
+  data = df,
   whichRandom = "subj_idx",
   progress = FALSE,
   posterior = FALSE,
 )
 
-cond_shape_model <- BayesFactor::lmBF(
-  formula = rt ~ condition+shape + subj_idx,
-  data = df.long,
+# 不包含condition:shapes二阶交互效应的模型
+model_no_condition_shapes <- BayesFactor::lmBF(
+  formula = RT_m ~  condition + shapes + ismatch + condition:ismatch + shapes:ismatch + subj_idx,
+  data = df,
   whichRandom = "subj_idx",
   progress = FALSE,
   posterior = FALSE,
-  )
+)
 
-condition_model <- BayesFactor::lmBF(
-  formula = rt ~ condition + subj_idx,
-  data = df.long,
+# 不包含condition:ismatch二阶交互效应的模型
+model_no_condition_ismatch <- BayesFactor::lmBF(
+  formula = RT_m ~  condition + shapes + ismatch + condition:shapes + shapes:ismatch + subj_idx,
+  data = df,
   whichRandom = "subj_idx",
   progress = FALSE,
   posterior = FALSE,
-  )
+)
 
-shape_model <- BayesFactor::lmBF(
-  formula = rt ~ shape + subj_idx,
-  data = df.long,
+# 不包含shapes*mismatch二阶交互效应的模型
+model_no_shapes_ismatch <- BayesFactor::lmBF(
+  formula = RT_m ~  condition + shapes + ismatch + condition:shapes + condition:ismatch + subj_idx,
+  data = df,
   whichRandom = "subj_idx",
   progress = FALSE,
   posterior = FALSE,
-  )
+)
 
-# full_model / null_model
+# 包含所有主效应的模型
+model_3_main <- BayesFactor::lmBF(
+  formula = RT_m ~  condition + shapes + ismatch + subj_idx,
+  data = df,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+)
 
-interaction_bf <- full_model / cond_shape_model
-condition_bf <- condition_model / null_model
-shape_bf <- shape_model / null_model
-print(paste("交互效应的贝叶斯因子为：", format(extractBF(interaction_bf)$bf, scientific = TRUE, digits = 4)))
-print(paste("condition主效应贝叶斯因子为：", format(extractBF(condition_bf)$bf, digits = 4)))
-print(paste("shape主效应贝叶斯因子为：", format(extractBF(shape_bf)$bf, digits = 4)))
+# 不包含condition的模型
+model_no_condition <- BayesFactor::lmBF(
+  formula = RT_m ~  shapes + ismatch + subj_idx,
+  data = df,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+)
+
+# 不包含shapes的模型
+model_no_shapes <- BayesFactor::lmBF(
+  formula = RT_m ~  condition + ismatch + subj_idx,
+  data = df,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+)
+# 不包含ismatch的模型
+model_no_ismatch <- BayesFactor::lmBF(
+  formula = RT_m ~  condition + shapes + subj_idx,
+  data = df,
+  whichRandom = "subj_idx",
+  progress = FALSE,
+  posterior = FALSE,
+)
 ```
+
+```{r}
+# 三阶交互效应BF
+bf_3way <- full_model / model_no_3way
+print(paste("3阶交互效应BF：", format(extractBF(bf_3way)$bf, scientific = TRUE, digits = 4)))
+
+# 计算condition:shapes二阶交互效应BF
+bf_2way_condition_shapes <- model_no_3way / model_no_condition_shapes
+print(paste("condition:shapes二阶交互效应BF：", format(extractBF(bf_2way_condition_shapes)$bf, scientific = TRUE, digits = 4)))
+
+# 计算condition:ismatch二阶交互效应BF
+bf_2way_condition_ismatch <- model_no_3way / model_no_condition_ismatch
+print(paste("condition:ismatch二阶交互效应BF：", format(extractBF(bf_2way_condition_ismatch)$bf, scientific = TRUE, digits = 4)))
+
+# 计算shapes*mismatch二阶交互效应BF
+bf_2way_shapes_ismatch <- model_no_3way / model_no_shapes_ismatch
+print(paste("shapes*mismatch二阶交互效应BF：", format(extractBF(bf_2way_shapes_ismatch)$bf, scientific = TRUE, digits = 4)))
+```
+
+```{r}
+# 可视化贝叶斯因子序列分析
+# 初始化变量
+n_subjects <- length(unique(df$subj_idx))
+bf_3way_history <- numeric(n_subjects)
+stop_flag <- FALSE
+
+# 按被试增量进行序贯分析
+for (i in 5:n_subjects) {  # 从第5个被试开始（最小样本量）
+  # 截取前i个被试的数据
+  df_subset <- df[df$subj_idx %in% unique(df$subj_idx)[1:i], ]
+  cat("计算被试数:", i, "\n")
+
+  
+  # 计算三阶交互作用的BF
+  bf_full <- lmBF(
+    formula = RT_m ~ condition*shapes*ismatch + subj_idx,
+    data = df_subset,
+    whichRandom = "subj_idx",
+    progress = FALSE
+  )
+
+
+
+  bf_no_3way <- lmBF(
+    formula = RT_m ~ condition + shapes + ismatch +
+        condition:shapes + condition:ismatch + shapes:ismatch + subj_idx,
+    data = df_subset,
+    whichRandom = "subj_idx",
+    progress = FALSE
+  )
+  
+  
+  bf_3way <- bf_full / bf_no_3way
+  bf_value <- extractBF(bf_3way)$bf
+  
+  # 记录当前BF
+  bf_3way_history[i] <- bf_value
+  cat(bf_3way_history)
+  
+  # 检查停止条件 (BF10 > 10 或 BF10 < 1/10)
+  if (bf_value > 10 || bf_value < 0.1) {
+    message(sprintf("停止收集数据! 被试数=%d, BF=%.2f", i, bf_value))
+    # stop_flag <- TRUE
+    # break
+  }
+}
+
+```
+
+```{r}
+# 创建包含所有信息的数据框
+plot_data <- data.frame(
+  n_subjects = 1:n_subjects,
+  bf = bf_3way_history
+)
+plot_data <- plot_data[!is.na(plot_data$bf), ]
+
+ggplot(plot_data, aes(x = n_subjects, y = bf)) +
+  geom_point(color = "blue", size = 3) +
+  geom_line(color = "blue") +
+  geom_hline(yintercept = c(0.1, 10), linetype = "dashed", color = "red") +
+  scale_y_log10() +
+  labs(title = "贝叶斯因子序列分析",
+       subtitle = "三阶交互作用 (condition × shapes × ismatch)",
+       x = "被试数量", y = "贝叶斯因子 (BF10)") +
+  # scale_x_continuous(breaks = scales::breaks_pretty())
+  theme_minimal()
+```
+
+
 
 <!-- # 参考元瑞论文的尝试 -->
 <!-- ```{r message=FALSE, warning=FALSE} -->

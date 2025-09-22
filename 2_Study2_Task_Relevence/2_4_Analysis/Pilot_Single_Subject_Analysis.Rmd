@@ -55,7 +55,8 @@ df <- df_raw %>%
     correct,
     key_press,
     shapes,       # 配对的标签（图形的社会属性
-    labels,    # 呈现的标签
+    pres_labels,    # 呈现的标签
+    pres_shapes,    # 呈现的图形
     pres_colors,    # 呈现的颜色
     paired_colors,    # 配对的颜色
     ismatch,
@@ -71,7 +72,7 @@ df <- df_raw %>%
     year = as.numeric(year),
     year = 2025 - year,
     acc = ifelse(correct == "true", 1, 0),
-    ismatch = ifelse(ismatch == "true", 1, 0),
+    ismatch = ifelse(ismatch == "TRUE", 1, 0),
   ) %>%
   select(
     -trial_type, 
@@ -93,8 +94,8 @@ df.check <- df %>%
     N_crrct = sum(acc),
     ACC = sum(acc)/length(acc)
     ) 
-head(df.check)
-    
+
+df.check
 ```
 
 ```{r}
@@ -110,7 +111,7 @@ df.norm <- df %>%
     density = dnorm(x=rt, mean=rt.mean, sd=rt.sd),
     rt=rt,
     ) 
-head(df.norm)
+df.norm
 
 ```
 ```{r}

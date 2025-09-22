@@ -162,7 +162,7 @@ console.log('随ID随机的按键', key);
 
 // 生成呈现刺激的颜色、形状、以及配对的标签、配对的颜色
 const { pres_colors, pres_labels, paired_labels, paired_colors, TIR_timeline_variables } = getLabelColorTimelineVariables(colored_shapes);
-
+console.log('图形-颜色匹配任务重复试次单元', TIR_timeline_variables);
 
 
 // 欢迎语
@@ -204,50 +204,6 @@ var information = {
                 }
             }
         },
-        // {// 收集被试信息
-        //     type: jsPsychSurveyHtmlForm,
-        //     preamble: "<p style =' color : white'>您的实验编号是</p>",
-        //     html: function () {
-        //         let data = localStorage.getItem(info["subj_idx"]) ? JSON.parse(localStorage.getItem(info["subj_idx"]))["Name"] : "";   // 获取被试Name属性值；三元运算符：condition ? value_if_true : value_if_false 条件为真执行?后语句，为假执行:后语句。getItem()根据键名获取键值，parse()解析为JavaScript 对象
-        //         console.log('data的属性', Object.keys(data)); // 输出对象的所有键名
-        //         return "<p><input name='Q0' type='text' value='" + data + "' required/></p>"; // 返回name属性值；<p></p>表示段落，<input>表示输入标签，name为Q0，类型为文本输入框，值为data，具有必填属性
-        //     },
-        //     button_label: "继续",
-        //     on_finish: function (data) {
-        //         info["ID"] = data.response.Q0;
-        //         // // 学习阶段：图形-标签/颜色配对；需要保证（1）图形与标签是根据被试ID随机配对的（2）图形-标签对 呈现顺序随机
-        //         // shape_images = permutation(shape_images, 3)[parseInt(info["ID"]) % 6]   // permutation会产生图形的完全组合，共6种；根据被试ID随机抽取0-5任一组合
-        //         // // 图形与标签配对
-        //         // view_shape_label = []   // 呈现shape-label配对
-        //         // jsPsych.randomization.shuffle(shape_images).forEach((v, i) => {
-        //         //     // 二次随机img，S-L上下位置不一样
-        //         //     view_shape_label.push(`<img src="${v}" width=140 style="vertical-align:middle"><span style=" font-size: 35px;">&nbsp-----&nbsp${labels[shape_images.indexOf(v)]}</span>`);   // texts不需要随机,shape_images存储的是第一次根据ID随机抽取的结果；使用shape_images.indexOf(v)能够返回二次随机图形在一次随机中的索引值，这是个固定值，然后再根据此索引调出labels对应的值；view_texts_images存储的是v,v的值不变，所以图形-标签值不变，但v的顺序被shuffle，所以出现的图形-标签出现的顺序会变。
-        //         //     ShapeLabelMap.set(v, `${labels[shape_images.indexOf(v)]}`);// 存储图形-标签键值对，用于timelinevariable
-        //         // });
-        //         // // console.log('图形-标签配对', view_shape_label);
-        //         // // console.log('图形-标签配对', ShapeLabelMap);
-        //         // // 图形与颜色配对
-        //         // view_shape_color = []   // 呈现shape-color配对
-        //         // jsPsych.randomization.shuffle(shape_images).forEach((v, i) => {
-        //         //     view_shape_color.push(`<img src="${v}" width=140 style="vertical-align:middle"><span style=" font-size: 35px;">&nbsp-----<img src="${color_images[shape_images.indexOf(v)]}" width=150 style="vertical-align:middle"></span>`);
-        //         //     ShapeColorMap.set(v, `${colors[shape_images.indexOf(v)]}`);// 存储图形-颜色键值对，用于timelinevariable
-        //         // }
-        //         // );
-        //         // // console.log('图形-颜色配对', view_shape_color);
-        //         // key = permutation(key, 2)[parseInt(info["ID"]) % 2];   // 按键随被试ID随机
-        //         // // console.log('随ID随机的按键', key);
-
-
-        //         // // 生成呈现刺激的颜色、形状、以及配对的标签、配对的颜色
-        //         // // const { pres_colors, pres_labels, paired_labels, paired_colors, TIR_timeline_variables } = getLabelColorTimelineVariables(colored_shapes);
-        //         // const result = getLabelColorTimelineVariables(colored_shapes);
-        //         // pres_labels = result.pres_labels;
-        //         // pres_colors = result.pres_colors;
-        //         // paired_labels = result.paired_labels;
-        //         // paired_colors = result.paired_colors;
-        //         // TIR_timeline_variables = result.TIR_timeline_variables;
-        //     }
-        // },
         {//收集性别
             type: jsPsychHtmlButtonResponse,
             stimulus: "<p style = 'color : white'>您的性别</p>",
@@ -403,11 +359,11 @@ var TR_prac = {
                     line_color: 'white',
                     show_start_time: 500,
                     // show_end_time: 1100   // 1100
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
                         const fixationEndTime = 500 + fixationDuration; // 注视点结束时刻，以试次开始为原点
                         stimuliStartTime = fixationEndTime; // 更新下一个刺激的开始时刻
-                        console.log('注视点结束时间：', fixationEndTime);
+                        console.log('注视点时长：', fixationDuration);
                         return fixationEndTime;
                     }
                 },
@@ -418,14 +374,14 @@ var TR_prac = {
                     line_length: 40, // pixels 视角：0.8° x 0.8°
                     line_width: 5,
                     line_color: 'white', // You can use the HTML color name instead of the HEX color.
-                    show_start_time:  function() {
-                        console.log('十字开始时间：', stimuliStartTime);
+                    show_start_time: function () {
+                        console.log('刺激开始时间：', stimuliStartTime);
                         return stimuliStartTime;
                     },
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const crossDuration = 100; // 十字呈现时间
                         const crossEndTime = stimuliStartTime + crossDuration;
-                        console.log('十字结束时间：', crossEndTime);
+                        console.log('刺激呈现时长：', crossDuration);
                         return crossEndTime;
                     },
                 },
@@ -439,14 +395,12 @@ var TR_prac = {
                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     // show_start_time: 1000,
                     // show_end_time: 1100,   // 1100
-                    show_start_time:  function() {
-                        // console.log('图片开始时间：', stimuliStartTime);
+                    show_start_time: function () {
                         return stimuliStartTime;
                     },
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const imageDuration = 100; // 图片呈现时间
                         const imageEndTime = stimuliStartTime + imageDuration;
-                        // console.log('图片结束时间：', imageEndTime);
                         return imageEndTime;
                     },
                     origin_center: true
@@ -463,14 +417,12 @@ var TR_prac = {
                     text_color: 'white',
                     // show_start_time: 1000,
                     // show_end_time: 1100,   // 1100
-                    show_start_time:  function() {
-                        // console.log('文字开始时间：', stimuliStartTime);
+                    show_start_time: function () {
                         return stimuliStartTime;
                     },
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const textDuration = 100; // 标签呈现时间
                         const textEndTime = stimuliStartTime + textDuration;
-                        // console.log('文字结束时间：', textEndTime);
                         return textEndTime;
                     },
                     origin_center: true
@@ -480,32 +432,31 @@ var TR_prac = {
             choices: ['f', 'j'],
             // response_start_time: 1000,
             // trial_duration: 2500,
-            response_start_time: function() {
+            response_start_time: function () {
                 return stimuliStartTime; // 反应开始时间：从刺激呈现就可以反应
             },
-            trial_duration: function() {
+            trial_duration: function () {
                 const reationDuration = 1500; // 反应时间1500ms
                 const trialEndTime = stimuliStartTime + reationDuration;
+                console.log('反应窗口：', reationDuration);
                 return trialEndTime;
             },//一个试次总时长
             on_start: function () {
                 console.log('呈现的图片：', jsPsych.timelineVariable("pres_stml")());
                 console.log('呈现的标签：', jsPsych.timelineVariable('pres_label', true)());
-                // console.log('图形-标签对：', ShapeColorMap);
-                // console.log('图形配对的标签：', jsPsych.timelineVariable("paired_label", true)());
                 console.log('正确的按键：', jsPsych.timelineVariable("identify", true)());
             },
             on_finish: function (data) {
                 data.correct_response = jsPsych.timelineVariable("identify", true)();   // 正确按键
                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
-                data.labels = jsPsych.timelineVariable('pres_label', true)();   // 呈现的标签
+                data.pres_labels = jsPsych.timelineVariable('pres_label', true)();   // 呈现的标签
+                data.pres_shapes = jsPsych.timelineVariable('pres_stml', true)();   // 呈现的图形
                 data.shapes = jsPsych.timelineVariable("paired_label", true)();   // 图形配对的标签
                 data.pres_colors = jsPsych.timelineVariable("pres_color", true)();   // 呈现的颜色
                 data.paired_colors = jsPsych.timelineVariable("paired_color", true)();   // 配对的颜色
-                data.ismatch = data.labels == data.shapes;   // 图形与标签是否匹配
+                data.ismatch = data.pres_labels == data.shapes;   // 图形与标签是否匹配
                 data.condition = "TR_prac";   // 标记为练习阶段
                 data.subj_idx = id;
-                console.log('被试的按键：', data.key_press);
             }
         },
         {   // 每个试次后反馈
@@ -530,6 +481,9 @@ var TR_prac = {
 
             choices: "NO_KEYS",
             trial_duration: 300,
+            on_start: function () {
+                console.log("反馈时长", this.trial_duration);
+            },
             data: {
                 screen_id: "feedback_test"
             },
@@ -652,7 +606,7 @@ var TR_if_node = { //if_node 用于判断是否呈现feedback_matching_task_p，
     conditional_function: function (data) {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(36);   // 需要修改
+        ).last(36);   // 36
         var correct_trials = trials.filter({
             correct: true
         });
@@ -670,7 +624,7 @@ var TR_loop_node = {
     loop_function: function () {
         var trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(36);   //需要修改
+        ).last(36);   // 36
         var correct_trials = trials.filter({
             correct: true
         });
@@ -691,7 +645,7 @@ var TR_goformal_instr = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(36);   //需要修改
+        ).last(36);   // 36
         let correct_trials = trials.filter({
             correct: true
         });
@@ -727,11 +681,10 @@ var TR_main = {
                     line_color: 'white',
                     show_start_time: 500,
                     // show_end_time: 1100   // 1100
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
                         const fixationEndTime = 500 + fixationDuration; // 注视点结束时刻，以试次开始为原点
                         stimuliStartTime = fixationEndTime; // 更新下一个刺激的开始时刻
-                        console.log('注视点结束时间：', fixationEndTime);
                         return fixationEndTime;
                     }
                 },
@@ -742,14 +695,12 @@ var TR_main = {
                     line_length: 40, // pixels 视角：0.8° x 0.8°
                     line_width: 5,
                     line_color: 'white', // You can use the HTML color name instead of the HEX color.
-                    show_start_time:  function() {
-                        console.log('十字开始时间：', stimuliStartTime);
+                    show_start_time: function () {
                         return stimuliStartTime;
                     },
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const crossDuration = 100; // 十字呈现时间
                         const crossEndTime = stimuliStartTime + crossDuration;
-                        console.log('十字结束时间：', crossEndTime);
                         return crossEndTime;
                     },
                 },
@@ -763,14 +714,12 @@ var TR_main = {
                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     // show_start_time: 1000,
                     // show_end_time: 1100,   // 1100
-                    show_start_time:  function() {
-                        // console.log('图片开始时间：', stimuliStartTime);
+                    show_start_time: function () {
                         return stimuliStartTime;
                     },
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const imageDuration = 100; // 图片呈现时间
                         const imageEndTime = stimuliStartTime + imageDuration;
-                        // console.log('图片结束时间：', imageEndTime);
                         return imageEndTime;
                     },
                     origin_center: true
@@ -787,14 +736,12 @@ var TR_main = {
                     text_color: 'white',
                     // show_start_time: 1000,
                     // show_end_time: 1100,   // 1100
-                    show_start_time:  function() {
-                        // console.log('文字开始时间：', stimuliStartTime);
+                    show_start_time: function () {
                         return stimuliStartTime;
                     },
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const textDuration = 100; // 标签呈现时间
                         const textEndTime = stimuliStartTime + textDuration;
-                        // console.log('文字结束时间：', textEndTime);
                         return textEndTime;
                     },
                     origin_center: true
@@ -804,32 +751,31 @@ var TR_main = {
             choices: ['f', 'j'],
             // response_start_time: 1000,
             // trial_duration: 2500,
-            response_start_time: function() {
+            response_start_time: function () {
                 return stimuliStartTime; // 反应开始时间：从刺激呈现就可以反应
             },
-            trial_duration: function() {
+            trial_duration: function () {
                 const reationDuration = 1500; // 反应时间1500ms
                 const trialEndTime = stimuliStartTime + reationDuration;
+                console.log('反应窗口', reationDuration);
                 return trialEndTime;
             },//一个试次总时长
             on_start: function () {
                 console.log('呈现的图片：', jsPsych.timelineVariable("pres_stml")());
                 console.log('呈现的标签：', jsPsych.timelineVariable('pres_label', true)());
-                // console.log('图形-标签对：', ShapeColorMap);
-                // console.log('图形配对的标签：', jsPsych.timelineVariable("paired_label", true)());
                 console.log('正确的按键：', jsPsych.timelineVariable("identify", true)());
             },
             on_finish: function (data) {
                 data.correct_response = jsPsych.timelineVariable("identify", true)();   // 正确按键
                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
-                data.labels = jsPsych.timelineVariable('pres_label', true)();   // 呈现的标签
+                data.pres_labels = jsPsych.timelineVariable('pres_label', true)();   // 呈现的标签
+                data.pres_shapes = jsPsych.timelineVariable('pres_stml', true)();   // 呈现的图形
                 data.shapes = jsPsych.timelineVariable("paired_label", true)();   // 图形配对的标签
                 data.pres_colors = jsPsych.timelineVariable("pres_color", true)();   // 呈现的颜色
                 data.paired_colors = jsPsych.timelineVariable("paired_color", true)();   // 配对的颜色
-                data.ismatch = data.labels == data.shapes;   // 图形与标签是否匹配
+                data.ismatch = data.pres_labels == data.shapes;   // 图形与标签是否匹配
                 data.condition = "TR_main";   // 标记为正式实验阶段
                 data.subj_idx = id;
-                console.log('被试的按键：', data.key_press);
             }
         },
         {   // 每个试次后反馈
@@ -1035,7 +981,7 @@ var TIR_prac = {
                     line_color: 'white',
                     show_start_time: 500,
                     // show_end_time: 1100   // 1100
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
                         const fixationEndTime = 500 + fixationDuration; // 注视点结束时刻，以试次开始为原点
                         stimuliStartTime = fixationEndTime; // 更新下一个刺激的开始时刻
@@ -1053,14 +999,12 @@ var TIR_prac = {
                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     // show_start_time: 1000,
                     // show_end_time: 1100,   // 1100
-                    show_start_time:  function() {
-                        console.log('图片开始时间：', stimuliStartTime);
+                    show_start_time: function () {
                         return stimuliStartTime;
                     },
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const imageDuration = 100; // 图片呈现时间
                         const imageEndTime = stimuliStartTime + imageDuration;
-                        console.log('图片结束时间：', imageEndTime);
                         return imageEndTime;
                     },
                     origin_center: true
@@ -1069,10 +1013,10 @@ var TIR_prac = {
             choices: ['f', 'j'],
             // response_start_time: 1000,
             // trial_duration: 2500,
-            response_start_time: function() {
+            response_start_time: function () {
                 return stimuliStartTime; // 反应开始时间：从刺激呈现就可以反应
             },
-            trial_duration: function() {
+            trial_duration: function () {
                 const reationDuration = 1500; // 反应时间1500ms
                 const trialEndTime = stimuliStartTime + reationDuration;
                 return trialEndTime;
@@ -1086,13 +1030,13 @@ var TIR_prac = {
             on_finish: function (data) {
                 data.correct_response = jsPsych.timelineVariable("identify");   // 正确按键
                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
+                data.pres_shapes = jsPsych.timelineVariable("pres_stml"); // 呈现的图形
                 data.shapes = jsPsych.timelineVariable("paired_label");   // 图形配对的标签
                 data.pres_colors = jsPsych.timelineVariable("pres_color");   // 呈现的颜色
                 data.paired_colors = jsPsych.timelineVariable("paired_color");   // 配对的颜色
                 data.ismatch = data.pres_colors == data.paired_colors;   // 呈现的颜色与学习的颜色是否匹配
                 data.condition = "TIR_prac";   // 标记为练习阶段
                 data.subj_idx = id;
-                console.log('被试的按键：', data.key_press);
             }
         },
         {   // 每个试次后反馈
@@ -1231,7 +1175,7 @@ var TIR_goformal_instr = {
     stimulus: function () {
         let trials = jsPsych.data.get().filter(
             [{ correct: true }, { correct: false }]
-        ).last(36);   //需要修改
+        ).last(36);   //
         let correct_trials = trials.filter({
             correct: true
         });
@@ -1252,7 +1196,7 @@ var TIR_goformal_instr = {
 timeline.push(TIR_goformal_instr);
 
 
-// 任务无关条件：练习阶段（呈现带颜色的图形，进行颜色匹配任务）
+// 任务无关条件：正式实验阶段（呈现带颜色的图形，进行颜色匹配任务）
 var TIR_main = {
     timeline: [
         {   // 单个试次
@@ -1267,11 +1211,10 @@ var TIR_main = {
                     line_color: 'white',
                     show_start_time: 500,
                     // show_end_time: 1100   // 1100
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
                         const fixationEndTime = 500 + fixationDuration; // 注视点结束时刻，以试次开始为原点
                         stimuliStartTime = fixationEndTime; // 更新下一个刺激的开始时刻
-                        console.log('注视点结束时间：', fixationEndTime);
                         return fixationEndTime;
                     }
                 },
@@ -1285,14 +1228,12 @@ var TIR_main = {
                     heigth: 190,   // 调整图片大小 视角：3.8° x 3.8°
                     // show_start_time: 1000,
                     // show_end_time: 1100,   // 1100
-                    show_start_time:  function() {
-                        console.log('图片开始时间：', stimuliStartTime);
+                    show_start_time: function () {
                         return stimuliStartTime;
                     },
-                    show_end_time: function() {
+                    show_end_time: function () {
                         const imageDuration = 100; // 图片呈现时间
                         const imageEndTime = stimuliStartTime + imageDuration;
-                        console.log('图片结束时间：', imageEndTime);
                         return imageEndTime;
                     },
                     origin_center: true
@@ -1301,10 +1242,10 @@ var TIR_main = {
             choices: ['f', 'j'],
             // response_start_time: 1000,
             // trial_duration: 2500,
-            response_start_time: function() {
+            response_start_time: function () {
                 return stimuliStartTime; // 反应开始时间：从刺激呈现就可以反应
             },
-            trial_duration: function() {
+            trial_duration: function () {
                 const reationDuration = 1500; // 反应时间1500ms
                 const trialEndTime = stimuliStartTime + reationDuration;
                 return trialEndTime;
@@ -1318,13 +1259,13 @@ var TIR_main = {
             on_finish: function (data) {
                 data.correct_response = jsPsych.timelineVariable("identify");   // 正确按键
                 data.correct = data.correct_response == data.key_press;   // 按键正确与否
+                data.pres_shapes = jsPsych.timelineVariable("pres_stml"); // 呈现的图形
                 data.shapes = jsPsych.timelineVariable("paired_label");   // 图形配对的标签
                 data.pres_colors = jsPsych.timelineVariable("pres_color");   // 呈现的颜色
                 data.paired_colors = jsPsych.timelineVariable("paired_color");   // 配对的颜色
                 data.ismatch = data.pres_colors == data.paired_colors;   // 呈现的颜色与学习的颜色是否匹配
                 data.condition = "TIR_main";   // 标记为正式实验阶段
                 data.subj_idx = id;
-                console.log('被试的按键：', data.key_press);
             }
         },
         {   // 每个试次后反馈
