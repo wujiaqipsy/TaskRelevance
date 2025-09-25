@@ -83,7 +83,6 @@
 ├─4_Report  # 报告
 ├─jspsych-7.3.1  
 ├─jspsych-psychophysics-3.4.0
-├─.gitignore
 └─README.md
 ```
 
