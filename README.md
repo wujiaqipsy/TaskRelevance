@@ -22,18 +22,18 @@
 
 ## 数据分析脚本
 
-### 实验1
+**实验1**
 - `Preprocessing.R`：数据预处理脚本，在`Data_Analysis.Rmd`中调用
 - `Data_Analysis.Rmd`：数据分析脚本
 - `pilot_single_subject_analysis.Rmd`：预实验，单个被试数据分析脚本
 - `Sequential_Bayes_Factor_Analysis.Rmd`：贝叶斯因子序列分析，停止数据收集脚本
 
-### 实验2
+**实验2**
 - `Data_Analysis.Rmd`：数据清洗与数据分析脚本
 - `Pilot_Single_Subject_Analysis.Rmd`：预实验，单个被试数据分析脚本
 - `Sequential_Bayes_Factor_Analysis.Rmd`：贝叶斯因子序列分析，停止数据收集脚本
 
-### 实验3
+**实验3**
 - 待完善
 
 
