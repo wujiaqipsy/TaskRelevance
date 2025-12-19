@@ -19,7 +19,7 @@ pacman::p_load(
 ```
 
 ```{r}
-data <- read.csv("exp3_100.csv")
+data <- read.csv("exp3_100_grey.csv")
 df <- data%>%
   dplyr::filter(phase != "")%>%
   dplyr::filter(stage == "response" & phase == "main")%>%
