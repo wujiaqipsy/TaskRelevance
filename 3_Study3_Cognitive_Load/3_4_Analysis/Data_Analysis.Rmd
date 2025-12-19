@@ -13,12 +13,13 @@ if (!require(pacman)){
 }
 
 pacman::p_load(
-  dplyr
+  dplyr,
+  tidyverse
 )
 ```
 
 ```{r}
-data <- read.csv("exp3_123.csv")
+data <- read.csv("exp3_100.csv")
 df <- data%>%
   dplyr::filter(phase != "")%>%
   dplyr::filter(stage == "response" & phase == "main")%>%
@@ -29,7 +30,7 @@ df <- data%>%
     TaskRelevance,
     CognitiveLoad,
     isMatch,
-    shapeMeaning,
+    Identity,
     nBack_shape,
     nBack_color,
     nBack_label,
@@ -40,6 +41,7 @@ df <- data%>%
     )%>%
   mutate(
     acc = ifelse(correct == "true", 1, 0),
+    rt = as.numeric(rt),
   )
 ```
 
@@ -47,7 +49,7 @@ df <- data%>%
 ```{r}
 # 数据自检
 df.check <- df%>%
-        dplyr::group_by(subj_idx, TaskRelevance, CognitiveLoad, isMatch, shapeMeaning) %>%
+        dplyr::group_by(subj_idx, TaskRelevance, CognitiveLoad, isMatch, Identity) %>%
         dplyr::summarise(N = length(acc),
                          N_crrct = sum(acc),
                          ACC = sum(acc)/length(acc)) %>%
@@ -55,14 +57,40 @@ df.check <- df%>%
         dplyr::ungroup()
 
 df.check
+
+# 颜色平衡
+table(df$nBack_shape)
 ```
 
 ```{r}
-result <- df %>% 
-  group_by(nBack_shape) %>% 
-  summarise(Count = n()) %>% 
-  ungroup()
-result
+df.jasp <- df%>%
+  mutate(
+    TaskRelevance = case_when(TaskRelevance == "TaskRelevant" ~ "TR", TaskRelevance == "TaskIRRelevant" ~ "TIR", ),
+    Identity = case_when(
+      Identity == "自我" ~ "self",
+      Identity == "生人" ~ "stranger",
+    ),
+    isMatch = case_when(isMatch == "true" ~ "match", isMatch == "false" ~ "mismatch"),
+    CognitiveLoad = case_when(CognitiveLoad == 1 ~ "low", CognitiveLoad == 2 ~ "high")
+  )
+
+
+
+df.rt.jasp <- df.jasp %>%
+  dplyr::filter(acc == 1) %>%
+  dplyr::group_by(subj_idx, TaskRelevance, Identity, isMatch, CognitiveLoad) %>%
+  dplyr::summarise(RT_m = mean(rt), .groups = 'drop') %>%
+  pivot_wider(names_from = c("TaskRelevance", "Identity", "isMatch", "CognitiveLoad"),
+              values_from = "RT_m") 
+
+df.acc.jasp <- df.jasp %>%
+  dplyr::group_by(subj_idx, TaskRelevance, Identity, isMatch, CognitiveLoad) %>%
+  dplyr::summarise(ACC = sum(acc) / length(acc), .groups = 'drop') %>%
+  pivot_wider(names_from = c("TaskRelevance", "Identity", "isMatch", "CognitiveLoad"),
+              values_from = "ACC") 
+
+head(df.rt.jasp)
+head(df.acc.jasp)
 ```
 
 

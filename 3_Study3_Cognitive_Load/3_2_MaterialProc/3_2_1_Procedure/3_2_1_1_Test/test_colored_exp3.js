@@ -58,16 +58,16 @@ const config = {
     min_sequence: 3,   // 最小序列长度 (n + 1)
     max_sequence: 5,   // 最大序列长度
     acc: 70,   // 正确率70%才能通过练习
-    rep_block: 2, // 4 重复4个block
+    rep_block: 1, // 3 重复3个block
     shape_duration: 500,  // 图形呈现时间
     label_duration: 500,  // 标签呈现时间
-    response_window: 2000,  // 反应窗口时间
+    response_window: 2000,  // 2000ms？反应窗口时间；从标签呈现开始计算
     feedback_duration: 300,  // 反馈持续时间
     isi: 500,   // 图形间隔
 
     trialsPerCondition: {  // 设置为偶数,方便后期图形颜色的平衡
-        prac: 2,   // 4， 练习阶段，每个条件重复4次，共有2*2=4个条件，练习试次16次
-        main: 2,   // 16，正式实验，每个条件重复16次。一个block内每个条件有16个试次，结合4个block，每个条件有64个试次。此处的条件指的是标签和匹配的组合
+        prac: 2,   // 4， 练习阶段，每个条件重复4次，4个条件，练习试次16次。一个试次7s，练习阶段2mins左右
+        main: 2,   // 16，正式实验，每个条件重复16次，结合3个block，每个条件有48个试次。单个block总试次数=16*4=64次，一个block 6分钟,一个任务18分钟，4个任务1h12mins
     },
 
     n: {
@@ -132,12 +132,12 @@ function shuffleArray(array) {
 }
 
 
-// 创建TaskRelevance所有试次
+// 创建TaskRelevance所有试次（核心函数）
 function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与正式实验创建不同的试次。
     const n_back = n;   // 认知负荷n值;
-    const trials = [];
+    const trials = [];  // 存储单block内所有试次
 
-    // 存储所有实验条件，实验条件为label_types和is_match的组合，2*2=4
+    // 存储label_types和is_match的组合，2*2=4种[自我-匹配，自我-不匹配，生人-匹配，生人-不匹配]
     const allConditions = [];
 
     config.label_types.forEach(labelType => {
@@ -162,22 +162,18 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
 
     // 2. 为每个条件预生成平衡的颜色池（红绿各半）
     allConditions.forEach(condition => {        
-        // 生成红绿各半的颜色池（例如：4次 → ['red', 'red', 'green', 'green']）
+        // condition中新增colorPool属性，用于存储颜色，每种条件红绿各半，红绿顺序随机
         condition.colorPool = [
             ...Array(trialsPerCondition / 2).fill('red'),
             ...Array(trialsPerCondition / 2).fill('green')
         ];
-        
-        // 打乱顺序（避免固定模式）
         condition.colorPool = shuffleArray(condition.colorPool);  // 颜色池随机化
-        
     });
-    // console.log("allConditions:", allConditions)
 
     
-    // 生成单个试次，循环至所有试次完成，共16/64次
+    // 生成单个试次，循环至单个block所有试次完成
     while (trials.length < aBlockTrials) {
-        const availableConditions = allConditions.filter(c => c.count < trialsPerCondition);   // 返回未满3/15次重复的所有条件。
+        const availableConditions = allConditions.filter(c => c.count < trialsPerCondition);   // 返回未满重复次数的所有条件。
         if (availableConditions.length === 0) break;
 
         // 1. 确定试次的实验条件：随机选择一个实验条件
@@ -196,33 +192,34 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
         const colors = [];
 
         // 从颜色池中取出当前试次应该使用的颜色
-        const targetColor = condition.colorPool[condition.count];
-        console.log("现在的条件是", condition)
-        console.log("现在进行到该条件下第", condition.count,"个试次" )
-        console.log("这个试次使用的颜色是", targetColor)
+        const targetColor = condition.colorPool[condition.count];   // 根据当前试次index取颜色，取之前颜色已经随机过
+        // console.log("现在的条件是", condition)
+        // console.log("现在进行到该条件下第", condition.count,"个试次" )
+        // console.log("这个试次使用的颜色是", targetColor)
 
         // 自我与任务有关条件
         if (task === config.task.TR) {
 
-            for (let j = 0; j < seqLength; j++) {  // 循环生成所有试次
+            for (let j = 0; j < seqLength; j++) {  // 循环生成单试次所有图形序列
 
                 if (j === targetIndex) {
-                    // 目标位置呈现的图形
+                    // 目标位置呈现的图形，matchShapes会筛选出这个标签对应的2个图形，1个红的，1个绿的
                     const matchShapes = [...ColoredShapeLabelMap.keys()].filter(
                         key => ColoredShapeLabelMap.get(key) === condition.label_type
                     );
+                    // console.log("matchShapes是1红1绿2个吗", matchShapes)
 
                     // 根据颜色池中指定的颜色选择图形
-                    const filteredShapes = matchShapes.filter(shape => shape.includes(targetColor));
-                    console.log("目标位置呈现的颜色图形filteredShapes", filteredShapes)
+                    seqshape = matchShapes.filter(shape => shape.includes(targetColor))[0];
 
-                    
-                    // 如果没有符合条件的图形，则使用所有匹配图形（后备方案）
-                    seqshape = filteredShapes.length > 0 
-                        ? filteredShapes[Math.floor(Math.random() * filteredShapes.length)]
-                        : matchShapes[Math.floor(Math.random() * matchShapes.length)];
+                    // const filteredShapes = matchShapes.filter(shape => shape.includes(targetColor))[0];
+                    // console.log("filteredShapes是一个嘛", filteredShapes)
+                    // // 如果没有符合条件的图形，则使用所有匹配图形（后备方案）
+                    // seqshape = filteredShapes.length > 0 
+                    //     ? filteredShapes[Math.floor(Math.random() * filteredShapes.length)]
+                    //     : matchShapes[Math.floor(Math.random() * matchShapes.length)];
 
-                    console.log("目标位置呈现的颜色图形seqshape", seqshape)  
+                    // console.log("目标位置呈现的颜色图形seqshape", seqshape)  
 
                     // seqshape = matchShapes[Math.floor(Math.random() * matchShapes.length)];
                     shapes.push(seqshape);
@@ -236,16 +233,16 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
                 labels.push(seqlabel);
             }
         } else if (task === config.task.TIR) {
-            const baseshape = Array.from(ShapeLabelMap.keys()).filter(key => ShapeLabelMap.get(key) === condition.label_type);
-            const tmpcolor = ShapeColorMap.get(baseshape[0]).includes('红色') ? 'red' : 'green';
+            const baseshape = Array.from(ShapeLabelMap.keys()).filter(key => ShapeLabelMap.get(key) === condition.label_type);   //eg.自我对应的图形，三角形
+            const tmpcolor = ShapeColorMap.get(baseshape[0]).includes('红色') ? 'red' : 'green';   // eg.自我图形对应的颜色；自我--三角形--红色
 
             for (let j = 0; j < seqLength; j++) {
 
                 if (j === targetIndex) {
                     const matchShapes = [...ColoredShapeLabelMap.keys()].filter(
                         key => ColoredShapeLabelMap.get(key) === condition.label_type
-                    );
-                    seqshape = condition.is_match ? matchShapes.find(item => item.includes(tmpcolor)) : matchShapes.find(item => !item.includes(tmpcolor));
+                    );   // eg. 自我标签对应的带颜色图形，1个红色1个绿色
+                    seqshape = condition.is_match ? matchShapes.find(item => item.includes(tmpcolor)) : matchShapes.find(item => !item.includes(tmpcolor));   // 匹配，返回红色三角；不匹配返回绿色三角
                     shapes.push(seqshape);
                     // if (condition.is_match) {
                     //     // 目标位置，匹配条件，随机输出一个与标签配对的带颜色图形；
@@ -296,7 +293,8 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
         const nBackLabel = labels[targetIndex];
         const nBackColor = colors[targetIndex];
 
-        // 生成试次数据
+
+        // 生成单试次数据
         trials.push({
             phase: phase,
             n_back: n_back,
@@ -304,7 +302,7 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
             is_match: condition.is_match,
             shape_meaning: condition.label_type,
             condition_type: condition,
-            sequence: shapes,
+            sequence: shapes,   // 图形序列
             display_label: displayLabel,
             nBack_shape: nBackShape,
             nBack_label: nBackLabel,
@@ -314,7 +312,13 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
 
         // 更新该条件的计数
         condition.count++;
+
     }
+
+    console.log("单个block的总试次数是:", aBlockTrials);
+    console.log("当前的trials序列是:", trials);
+    
+
 
     return { trials, aBlockTrials };   // 返回试次和单个block的总试次数 
 }
@@ -370,7 +374,7 @@ function createTrialTimeline(trials) {
             },
             choices: ['f', 'j'],
             stimulus_duration: config.label_duration,
-            trial_duration: config.response_window,
+            trial_duration: config.response_window,   // 标签呈现就可以按键反应
             response_ends_trial: true,
             data: {
                 subj_idx: id,
@@ -379,7 +383,7 @@ function createTrialTimeline(trials) {
                 TaskRelevance: trial.task,
                 CognitiveLoad: trial.n_back,   // 认知负荷n值
                 isMatch: trial.is_match,   // 是否匹配
-                shapeMeaning: trial.shape_meaning,
+                Identity: trial.shape_meaning,
                 display_label: trial.display_label,
                 nBack_shape: trial.nBack_shape,
                 nBack_color: trial.nBack_color,
@@ -389,16 +393,14 @@ function createTrialTimeline(trials) {
                 correct_response: trial.correct_response
             },
             on_start: function () {
-                console.log('试次图形条件是', trial.shape_meaning,)
-                console.log('试次匹配情况是', trial.is_match)
+                // console.log('当前试次图形身份是', trial.shape_meaning,)
+                console.log('当前试次匹配情况是', trial.is_match)
                 console.log('目标位置图形是', trial.nBack_shape);
-                console.log('data.correct_response', trial.correct_response)
+                console.log('正确反应是', trial.correct_response)
             },
             on_finish: function (data) {
                 data.correct_response = trial.correct_response;
-                console.log('data.keypress', data.response)
                 data.correct = data.correct_response == data.response;   // 按键正确与否
-                console.log('data.correct', data.correct)
             }
         });
         // 4. 单个试次反馈
@@ -465,25 +467,25 @@ colored_shapes.forEach(coloredShape => {
 key = permutation(key, 2)[parseInt(id) % 2];// 根据ID随机按键
 
 console.log('随ID随机的按键', key);
-// console.log('图形-标签配对', ShapeLabelMap);
+console.log('图形-标签配对', ShapeLabelMap);
 console.log('图形-颜色配对', ShapeColorMap);
-console.log('带颜色的图形-标签配对', ColoredShapeLabelMap);
-console.log('带颜色的图形-颜色配对', ColoredShapeColorMap);
 
 
 // 4. 生成试次
 
-// 练习阶段
+// 练习阶段试次
 TR_high_prac_result = createTrials(n=config.n.high, phase='prac', task=config.task.TR);  // 自我与任务有关，高认知负荷
 TR_low_prac_result = createTrials(n=config.n.low, phase='prac', task=config.task.TR);  // 自我与任务有关，低认知负荷
 TIR_high_prac_result = createTrials(n=config.n.high, phase='prac', task=config.task.TIR);  // 自我与任务无关，高认知负荷
 TIR_low_prac_result = createTrials(n=config.n.low, phase='prac', task=config.task.TIR);  // 自我与任务无关，低认知负荷
 
-// 正式实验阶段
+// 正式实验阶段试次
 TR_high_main_result = createTrials(n=config.n.high, phase='main', task=config.task.TR);  // 自我与任务有关，高认知负荷
 TR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.task.TR);  // 自我与任务有关，低认知负荷
 TIR_high_main_result = createTrials(n=config.n.high, phase='main', task=config.task.TIR);  // 自我与任务无关，高认知负荷
 TIR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.task.TIR);  // 自我与任务无关，低认知负荷
+
+console.log('任务有关高负荷_练习试次', TR_high_prac_result);
 
 
 
@@ -639,7 +641,7 @@ var fullscreen_trial = {
 
 // ====================练习阶段函数==================== //
 
-// 图形-标签匹配任务n-back指导语
+// 指导语:根据任务类型和n-back变化
 function task_instr(condition_result) {
     return {
         type: jsPsychInstructions,
@@ -649,11 +651,12 @@ function task_instr(condition_result) {
                 end = "<p>如果您记住了对应关系及按键规则，请点击 继续</p>";
             let tmpI = "";
             let nBack;
-            if (condition_result.trials[0].n_back > 1) {
+            if (condition_result.trials[0].n_back > 1) { 
                 nBack = config.n.high
             } else if (condition_result.trials[0].n_back <= 1) {
                 nBack = config.n.low
             };
+            // 图形-标签匹配任务指导语
             if (condition_result.trials[0].task === 'TaskRelevant') {
                 view_shape_label.forEach(v => {   // 呈现图形标签对应关系
                     tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
@@ -668,6 +671,7 @@ function task_instr(condition_result) {
                  <p>通过练习后，您将进入正式实验。</p></span>`,
                     middle + end];
 
+            // 图形-颜色匹配任务指导语
             } else if (condition_result.trials[0].task === 'TaskIRRelevant') {
                 view_shape_color.forEach(v => {   // 呈现图形颜色对应关系
                     tmpI += `<p class="content" style='font-size:35px'>${v}</p>`;
@@ -723,7 +727,7 @@ function pracBlockFeedback(condition_result) {
             correct: true   // 获取正确的试次
         });
         let accuracy = Math.round(correct_trials.count() / trials.count() * 100);   //计算正确率
-        console.log('练习试次数', trials.count())
+        console.log('练习次数', trials.count())
         let rt = Math.round(correct_trials.select('rt').mean());   // 计算平均反应时
         return `
     <style>
@@ -782,7 +786,7 @@ function recapInstr(condition_result) {
                     middle + end];
             }
 
-            // console.log("当前任务是", condition_result, "当前呈现配对关系是", tmpI, "当前nback数是", nBack)
+            console.log("当前任务是", condition_result, "当前呈现配对关系是", tmpI, "当前nback数是", nBack)
 
         },
         show_clickable_nav: true,
@@ -851,7 +855,7 @@ function reprac_loop_node(condition_result){
 
 // 完整的练习设置：练习+判断是否再次练习
 function createPracticeBlock(condition_result) {
-    console.log(condition_result, '练习阶段开始啦')
+    // console.log(condition_result, '练习阶段开始啦')
     return [
         reprac_loop_node(condition_result), // 循环练习阶段
     ];
@@ -943,6 +947,7 @@ function rest(resid_block_numb) {
     }
 }
 
+// 进入下一个任务指导语
 function TaskTransitionMessage(taskNumber) {
     return {
         type: jsPsychHtmlKeyboardResponse,
@@ -973,13 +978,13 @@ function TaskTransitionMessage(taskNumber) {
 function createMainBlock(condition_result) {
     let resid_block_numb = config.rep_block - 1
     
-    console.log(condition_result, '正式实验开始啦')
+    // console.log(condition_result, '正式实验开始啦')
     
     return [
         {
             timeline: [
                 Block(condition_result),
-                // mainBlockFeedback(condition_result),
+                mainBlockFeedback(condition_result),
                 rest(resid_block_numb),
 
             ],
@@ -992,7 +997,7 @@ function createMainBlock(condition_result) {
 
 // 完整的单个任务设置：练习+正式实验
 function createTaskTrials(prac_result, main_result, taskNumber) {
-    console.log('现在是第',taskNumber,"个任务")
+    // console.log('现在是第',taskNumber,"个任务")
     return [
         {
             timeline: [
@@ -1030,7 +1035,7 @@ const taskSequence = [
     orderId >> 1 & 1 ? task_TIR_high : task_TIR_low
 ]
 
-console.log("被试的顺序ID是", orderId)
+// console.log("被试的顺序ID是", orderId)
 console.log("被试抽中的顺序是", taskSequence)
 
 // 4. 按照既定顺序执行4个任务timeline

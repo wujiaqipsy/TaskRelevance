@@ -86,7 +86,9 @@ df_raw <- list.files(file.path("../2_3_RawData"), pattern = "exp2_.*\\.csv$") %>
         success = as.character(success),
         timeout = as.character(timeout),
         correct = as.character(correct),
+        ismatch = as.character(ismatch),
         correct = gsub("TRUE", "true", correct),
+        ismatch = tolower(ismatch),
       )
   ) %>%
   bind_rows()
@@ -125,7 +127,7 @@ df <- df_raw %>%
     year = as.numeric(year),
     year = 2025 - year,
     acc = ifelse(correct == "true", 1, 0),
-    ismatch = ifelse(ismatch == "TRUE", 1, 0),
+    ismatch = ifelse(ismatch == "true", 1, 0),
   ) %>%
   select(
     -trial_type, 
@@ -135,6 +137,9 @@ df <- df_raw %>%
 head(df)
   
 df
+
+# length(unique(df$subj_idx))   # 查看被试总数
+
 ```
 
 ## 数据描述
@@ -161,6 +166,9 @@ df.v <- df %>%
         dplyr::filter(!(subj_idx %in% df.excld.sub$subj_idx))   # 排除正确率低于0.7的被试
 df.v
 
+```
+
+```{r}
 # 基于有效被试的人口学信息统计
 df.basic <- df.v %>%
         dplyr::select(subj_idx, year, gender) %>%
@@ -173,6 +181,7 @@ df.basic <- df.v %>%
         )
 ```
 
+
 ## 据框格式整理
 ### 方差分析
 ```{r}
@@ -183,72 +192,238 @@ df.rt_m <- df.v %>%
         dplyr::summarise(RT_m = mean(rt),
                          RT_SD = sd(rt),
                          RT_SE = RT_SD/sqrt(n()-1),
-                         Ntrial = length(rt)) %>%
-        dplyr::ungroup()
+                         Ntrial = length(rt),
+                         .groups = 'drop') 
 
 df.acc <- df.v %>%
+        # dplyr::filter(subj_idx == 26) %>% 
+        # dplyr::group_by(subj_idx)%>%# 发被试费用
         dplyr::group_by(subj_idx, condition, shapes, ismatch) %>%
         dplyr::summarise(N = length(acc),      
                          N_crrct = sum(acc),
-                         ACC = sum(acc)/length(acc)) %>%
-        dplyr::ungroup()
-df.acc
-write_excel_csv(df.rt_m, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis'), "exp2_rt_m.csv"))
+                         ACC = sum(acc)/length(acc),
+                         .groups = 'drop')
+
+
+# 计算效率值η
+df.η <- df.rt_m %>%
+  inner_join(df.acc, by = c("subj_idx", "condition", "shapes", "ismatch")) %>%
+  mutate(η = ifelse(ACC == 0, NA, RT_m / ACC)) %>%
+  select(subj_idx, condition, shapes, ismatch, η)
+
+
+# 信号检测论d prime
+df.dprime <- df.v%>%
+    group_by(subj_idx, condition, shapes) %>%   # 输入除ismatch外另外两个自变量
+    summarise(
+      match_trials = sum(ismatch == 1),   # 匹配试次总数
+      hits = sum(ismatch == 1 & acc == 1),   # 匹配情况下，正确识别为匹配
+      nonmatch_trials = sum(ismatch == 0),   # 不匹配试次总数
+      false_alarms = sum(ismatch == 0 & acc == 0),   # 不匹配情况下，错误识别为匹配
+      .groups = 'drop'
+    ) %>%
+    mutate(
+      # 处理极端值：# 如果击中为1，则调整为1 - 1/(2N)；如果为0则调整为1/(2N)，否则按照hits/match_trials计算
+      HR = ifelse(hits/match_trials == 1, 1 - 1/(2*match_trials),   
+                 ifelse(hits/match_trials == 0, 1/(2*match_trials), hits/match_trials)),
+      FAR = ifelse(false_alarms/nonmatch_trials == 1, 1 - 1/(2*nonmatch_trials),
+                  ifelse(false_alarms/nonmatch_trials == 0, 1/(2*nonmatch_trials), false_alarms/nonmatch_trials)),
+      # 计算d prime
+      dprime = qnorm(HR) - qnorm(FAR)
+    )
+  
+# write_excel_csv(df.rt_m, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis'), "exp2_rt_m.csv"))
 ```
 
 ```{r}
 ###### 获取每个被试在每个条件下的平均反应时 适用JASP ######
 
-# shape-label matching task
-df.rt.jasp <- df.rt_m %>%   
-        select(
-               -RT_SD,
-               -Ntrial,
-               -RT_SE
-        ) %>%
+df.v.jasp <- df.v%>%
   mutate(
-    condition = case_when(
-                  condition == "TR_main" ~ "TR",
-                  condition == "TIR_main" ~ "TIR",
-                ),
+    condition = case_when(condition == "TR_main" ~ "TR", condition == "TIR_main" ~ "TIR", ),
     shapes = case_when(
       shapes == "自我" ~ "self",
       shapes == "朋友" ~ "friend",
       shapes == "生人" ~ "stranger",
     ),
-    ismatch = case_when(
-      ismatch == "1" ~ "match",
-      ismatch == "0" ~ "mismatch",
-    )
-    )%>%
-  pivot_wider(names_from = c("condition", "shapes", "ismatch"), values_from = "RT_m")
+    ismatch = case_when(ismatch == "1" ~ "match", ismatch == "0" ~ "mismatch", )
+  )
 
-df.acc.jasp <- df.acc %>%
-        select(
-               -N,
-               -N_crrct
-        ) %>%
-  mutate(
-    condition = case_when(
-                  condition == "TR_main" ~ "TR",
-                  condition == "TIR_main" ~ "TIR",
-                ),
+
+
+df.rt.jasp <- df.v.jasp %>%
+  dplyr::filter(acc == 1) %>%
+  dplyr::group_by(subj_idx, condition, shapes, ismatch) %>%
+  dplyr::summarise(RT_m = mean(rt), .groups = 'drop') %>%
+  pivot_wider(names_from = c("condition", "shapes", "ismatch"),
+              values_from = "RT_m") 
+
+
+
+df.acc.jasp <- df.v.jasp %>%
+  dplyr::group_by(subj_idx, condition, shapes, ismatch) %>%
+  dplyr::summarise(ACC = sum(acc) / length(acc), .groups = 'drop') %>%
+  pivot_wider(names_from = c("condition", "shapes", "ismatch"),
+              values_from = "ACC") 
+
+
+
+df.η.jasp <- df.η %>%
+    select(subj_idx, condition, shapes, ismatch, η)%>%
+    mutate(
+    condition = case_when(condition == "TR_main" ~ "TR", condition == "TIR_main" ~ "TIR", ),
     shapes = case_when(
       shapes == "自我" ~ "self",
       shapes == "朋友" ~ "friend",
       shapes == "生人" ~ "stranger",
     ),
-    ismatch = case_when(
-      ismatch == "1" ~ "match",
-      ismatch == "0" ~ "mismatch",
-    )
-    )%>%
-  pivot_wider(names_from = c("condition", "shapes", "ismatch"), values_from = "ACC")
+    ismatch = case_when(ismatch == "1" ~ "match", ismatch == "0" ~ "mismatch" ))%>%
+  pivot_wider(names_from = c("condition", "shapes", "ismatch"),
+              values_from = "η")
 
+
+df.dprime.jasp <- df.dprime%>%
+  select(subj_idx, condition, shapes, dprime)%>%
+    mutate(
+    condition = case_when(condition == "TR_main" ~ "TR", condition == "TIR_main" ~ "TIR", ),
+    shapes = case_when(
+      shapes == "自我" ~ "self",
+      shapes == "朋友" ~ "friend",
+      shapes == "生人" ~ "stranger",
+    ) )%>%
+  pivot_wider(names_from = c("condition", "shapes"),
+              values_from = "dprime")
+  
 # jasp_path <- "C:/1_Postgraduate/TaskRelevance/2_Study2_Task_Relevence/2_4_Analysis/Jasp"
-write_excel_csv(df.rt.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_rt_jasp.csv"))
-write_excel_csv(df.acc.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_acc_jasp.csv"))
+# write_excel_csv(df.rt.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_rt_jasp.csv"))
+# write_excel_csv(df.acc.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_acc_jasp.csv"))
+# write_excel_csv(df.dprime.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_dprime_jasp.csv"))
+write_excel_csv(df.η.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_η_jasp.csv"))
 ```
+
+# bootstrap
+```{r}
+# Step1: 根据自变量分组，将每个组合下的RT与ACC变为一个数据点(RT,ACC)
+
+# 1.1 合并RT与ACC数据框，一行表示一个被试
+df_combined <- df.rt_m %>%
+  left_join(df.acc, by = c("subj_idx", "condition", "shapes", "ismatch")) %>%
+  select(subj_idx, condition, shapes, ismatch, RT_m, ACC)
+
+
+
+# 1.2 获取每个条件组合下的数据框列表
+df_list <- df_combined %>%
+  group_by(condition, shapes, ismatch) %>%
+  group_split() %>%
+  setNames(
+    map_chr(., ~ paste(.x$condition[1], .x$shapes[1], .x$ismatch[1], sep = "_"))
+  ) %>%
+  map(~ select(., RT_m, ACC))
+
+
+# names(df_list)
+# df_list[["TIR_main_朋友_0"]]   # 访问某个实验条件下的数据框
+
+
+
+
+# Step2: 进行一次有放回重采样，采样次数为单个条件的样本量；计算重采样样本的RT与ACC均值；重复k次
+
+# 2.1 定义重采样函数
+bootstrap_sample <- function(data) {
+  n <- nrow(data)   # 一行一个被试，获取实验条件下的样本量
+  indices <- sample(1:n, replace = TRUE, size = n)   # 从1：n中进行有放回抽样，抽取size次，返回一串索引
+  bootstrap_sample <- data[indices, ]   # 通过索引获取重采样数据，获取索引所在行，组合为重采样数据框1
+  return(bootstrap_sample)
+}
+
+
+
+# 2.2定义函数对每个条件数据点(RT,ACC)进行重采样与均值计算
+run_bootstrap_analysis <- function(data_list, k = 2000) {
+  results <- list()
+  set.seed(42)
+  
+  for (condition_name in names(data_list)) {
+    data <- data_list[[condition_name]]   # 获取每个实验条件的数据点
+    
+    mean_rt <- numeric(k)
+    mean_acc <- numeric(k)
+    
+    for (i in 1:k) {
+      bootstrap_sample_data <- bootstrap_sample(data)   # 进行一次重采样
+      mean_rt[i] <- mean(bootstrap_sample_data$RT_m)   # 计算单次重采样样本的RT均值
+      mean_acc[i] <- mean(bootstrap_sample_data$ACC)   # 计算单次重采样样本的ACC均值
+    }
+    
+    results[[condition_name]] <- data.frame(   # 存储每个实验条件下的重采样均值结果
+      condition = condition_name,
+      mean_rt = mean_rt,
+      mean_acc = mean_acc
+    )
+  }
+  
+  return(bind_rows(results))
+}
+
+
+
+# 2.3 使用函数
+bootstrap_results <- run_bootstrap_analysis(df_list, k = 2000)
+```
+
+
+
+```{r}
+# Step3: 以acc为X轴，RT为Y轴，按匹配情况分为2个子图，子图内图例为标签，统一坐标轴范围和刻度
+
+# 3.1 整理用于画图的数据格式
+bootstrap_results_plot <- bootstrap_results %>%
+  mutate(
+    condition_clean = str_replace(condition, "_main", "")  # 去掉_main
+  ) %>%
+  separate(condition_clean,
+           into = c("condition", "shapes", "ismatch"),
+           sep = "_") %>%
+  mutate(
+    ismatch = factor(
+      ifelse(ismatch == "0", "不匹配", "匹配"),
+      levels = c("匹配", "不匹配")),
+    condition = factor(
+      case_when(condition == "TIR" ~ "任务有关", condition == "TR" ~ "任务无关"),
+      levels = c("任务有关", "任务无关")),
+    shapes = factor(shapes, levels = c("自我", "朋友", "生人"))
+  ) %>%
+  relocate(mean_rt, mean_acc, .after = last_col())
+
+bootstrap_results_plot
+
+
+
+# 3.2 画图
+plot <- ggplot(bootstrap_results_plot, aes(x = mean_acc, y = mean_rt, color = shapes)) +
+  geom_point(alpha = 0.6, size = 2) +  # 添加透明度使重叠点可见
+  facet_grid(ismatch ~ condition) +  # 按condition和ismatch分面
+  labs(
+    title = "正确率与反应时分布，按任务条件和匹配情况分组",
+    x = "正确率", 
+    y = "反应时(ms)",
+    color = "身份"
+  ) +
+  ylim(500, 1000) +
+  xlim(0.5, 1.0) +
+  theme_apa() +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold"),
+    panel.spacing = unit(1, "lines")  # 增加面板间距
+  )
+
+print(plot)
+
+```
+
 
 ### 配对样本t检验
 ```{r}

@@ -38,6 +38,8 @@ df_raw <- list.files(file.path("../2_3_RawData"), pattern = "exp2_.*\\.csv$") %>
         timeout = as.character(timeout),
         correct = as.character(correct),
         correct = gsub("TRUE", "true", correct),
+        ismatch = as.character(ismatch),
+        ismatch = tolower(ismatch),
       )
   ) %>%
   bind_rows()
@@ -72,12 +74,13 @@ df <- df_raw %>%
     year = as.numeric(year),
     year = 2025 - year,
     acc = ifelse(correct == "true", 1, 0),
-    ismatch = ifelse(ismatch == "TRUE", 1, 0),
+    ismatch = ifelse(ismatch == "true", 1, 0),
   ) %>%
   select(
     -trial_type, 
     -correct,
-    -correct_response)
+    -correct_response)%>%
+  filter(subj_idx %in% c(41))
 
 head(df)
 
@@ -85,7 +88,7 @@ head(df)
 ```
 
 ```{r}
-# 试次数检查
+# 试次数&准确率检查
 df.check <- df %>% 
   group_by(subj_idx, condition, shapes, ismatch) %>%
   # group_by(subj_idx) %>%
@@ -97,12 +100,35 @@ df.check <- df %>%
 
 df.check
 ```
+```{r}
+# 被试疲劳/练习效应检查
+# 会存在练习效应，中后段会出现疲劳效应，需要提醒被试注意休息，以及要求又快又准，我们同时追求速度和准确性！！
+df.fatigue <- df %>%
+  group_by(subj_idx, condition) %>%
+  mutate(trial_index = row_number(),
+         phrase = case_when(
+           trial_index <= round(n() / 3) ~ "前期",
+           trial_index >  round(n() / 3) & trial_index <= round(2 * n() / 3) ~ "中期",
+           TRUE ~"后期"),
+         phrase = factor(phrase, levels = c("前期", "中期", "后期"))
+         ) %>%
+  group_by(subj_idx, condition, phrase) %>%
+  summarise(
+    mean_rt = mean(rt, na.rm = TRUE),
+    sd_rt = sd(rt, na.rm = TRUE),
+    n_trials = n()
+  ) 
+
+df.fatigue
+```
+
 
 ```{r}
 # 被试分类任务的反应时间分布
 df.norm <- df %>% 
-  # filter(subj_idx == 1)%>%
+  # filter(subj_idx == 32)%>%
   # filter(condition != "matching_task") %>%
+    # group_by(subj_idx) %>%
   group_by(subj_idx, condition, shapes, ismatch) %>%
   drop_na(rt) %>%
   summarise(
@@ -114,6 +140,9 @@ df.norm <- df %>%
 df.norm
 
 ```
+
+
+
 ```{r}
 ggplot(df.norm, aes(x=rt, y=density, color=shapes)) +
   geom_line() +
