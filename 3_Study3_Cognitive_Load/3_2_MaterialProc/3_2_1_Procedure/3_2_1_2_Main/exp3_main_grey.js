@@ -44,7 +44,7 @@ const config = {
     min_sequence: 3,   // 最小序列长度 (n + 1)
     max_sequence: 5,   // 最大序列长度
     acc: 70,   // 正确率70%才能通过练习
-    rep_block: 1, // 3 重复3个block
+    rep_block: 3, // 3 重复3个block
     shape_duration: 500,  // 图形呈现时间
     label_duration: 500,  // 标签呈现时间
     response_window: 2000,  // 2000ms？反应窗口时间；从标签呈现开始计算
@@ -52,8 +52,8 @@ const config = {
     isi: 500,   // 图形间隔
 
     trialsPerCondition: {  
-        prac: 1,   // 4， 练习阶段，每个条件重复4次，4个条件，练习试次16次。一个试次7s，练习阶段2mins左右
-        main: 1,   // 16，正式实验，每个条件重复16次，结合3个block，每个条件有48个试次。单个block总试次数=16*4=64次，一个block 6分钟,一个任务18分钟，4个任务1h12mins
+        prac: 4,   // 4， 练习阶段，每个条件重复4次，练习试次=重复4次*4个条件=16次。一个试次7s，练习阶段2mins左右
+        main: 16,   // 16，正式实验，每个条件重复16次，单个block总试次数=重复次数16*4个条件=64次；3个block，1个block每个条件重复16次，每个条件有48个试次。一个block 6分钟,一个任务18分钟，4个任务1h12mins
     },
 
     n: {
@@ -142,7 +142,6 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
         });
     });
 
-    console.log("所有可能的条件组合是(尤其看allConditions格式):", allConditions);
 
         // 计算总试次数
     const trialsPerCondition = config.trialsPerCondition[phase];  // 获取练习/正式实验每个条件的重复次数，值为3/15
@@ -161,31 +160,36 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
         // 2. 确定试次的图形序列长度：随机生成图形序列长度
         const seqLength = Math.floor(Math.random() * (config.max_sequence - config.min_sequence + 1)) + config.min_sequence;  // 取值在3-5之间，包括首尾
 
+        // 3. 确定目标位置
+        const targetIndex = seqLength - n_back;
 
-
-        // 3. 确定试次中呈现的序列图片、图片对应标签、图片对应颜色
+        // 4. 确定试次中呈现的序列图片、图片对应标签、图片对应颜色
         const shapes = [];
         const labels = [];
         const colors = [];
         const allShapes = Array.from(ShapeLabelMap.keys());  // 获取所有图形，2种
 
         for (let j = 0; j < seqLength; j++) {  // 根据seqLength长度指定循环次数
-
-            // 获取图形序列
-            const seqshape = allShapes[Math.floor(Math.random() * allShapes.length)];
-            shapes.push(seqshape);
+            // 获取目标位置图形
+            if (j === targetIndex) {
+                seqshape = [...ShapeLabelMap.keys()].filter(
+                        key => ShapeLabelMap.get(key) === condition.label_type
+                    )[0];
+                 shapes.push(seqshape);
+            }else {
+                seqshape = allShapes[Math.floor(Math.random() * allShapes.length)];
+                shapes.push(seqshape);
+            }
             labels.push(ShapeLabelMap.get(seqshape));  // 获取图形对应的标签
-            colors.push(ShapeColorMap.get(seqshape));  // 获取图形对应的颜色                
+            colors.push(ShapeColorMap.get(seqshape));  // 获取图形对应的颜色   
             }
 
 
         // 4. 目标位置的图形,对应标签/颜色
-        const targetIndex = seqLength - n_back;
+        
         const nBackShape = shapes[targetIndex];
         const nBackLabel = labels[targetIndex];
         const nBackColor = colors[targetIndex];
-
-        console.log('当前试次图形对应标签是:', nBackColor);
 
 
         // 5. 确定试次呈现的待判断标签
@@ -195,13 +199,13 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
             if (condition.is_match) {
             displayLabel = nBackLabel; // 匹配试次：显示图形对应的真实标签
         } else {
-            displayLabel = config.label_types.filter(l => l !== nBackLabel); // 不匹配试次：显示其他标签
+            displayLabel = config.label_types.filter(l => l !== nBackLabel)[0]; // 不匹配试次：显示其他标签
         }
         } else if (task === config.task.TIR) {
                         if (condition.is_match) {
             displayLabel = nBackColor; // 匹配试次：显示图形对应的真实标签
         } else {
-            displayLabel = config.color_types.filter(l => l !== nBackColor); // 不匹配试次：显示其他标签
+            displayLabel = config.color_types.filter(l => l !== nBackColor)[0]; // 不匹配试次：显示其他标签
         }
              }
 
@@ -238,54 +242,74 @@ function createTrials(n, phase, task) {  // 根据任务，n-back数，练习与
 // 创建单个试次的时间线：注视点、图片序列、文字标签、反应窗口、反馈
 function createTrialTimeline(trials) {
     const timeline = [];
-
-    // 遍历每个试次
     trials.forEach(trial => {
+        // 1. 注视点的随机时长
+        const fixationDuration = getRandomTime();
 
-        // 1. 注视点
-        timeline.push({
-            type: jsPsychHtmlKeyboardResponse,
-            stimulus: '<div style="font-size: 60px;">+</div>',
-            choices: "NO_KEYS",
-            // trial_duration: config.fixation_duration
-            trial_duration: function() {
-                        const fixationDuration = getRandomTime(); // 从200-1100的均匀分布中随机获取注视点呈现时长
-                        console.log('注视点时长：', fixationDuration);
-                        return fixationDuration;
-                    }
+        // 2. 处理图形序列的时间（控制每个图形的显示+ISI间隔）
+        let currentTime = fixationDuration; // 图形从“注视点结束”后开始
+        const shapeStimuli = trial.sequence.map(shape => {
+            const shapeElem = {
+                obj_type: "image",
+                file: shape,
+                startX: "center",
+                startY: "center",
+                width: 190,
+                height: 190,
+                show_start_time: currentTime,
+                show_end_time: currentTime + config.shape_duration,
+                origin_center: true // 中心对齐
+            };
+            // 下一个图形的开始时间 = 当前图形结束 + ISI间隔
+            currentTime = shapeElem.show_end_time + config.isi;
+            return shapeElem;
         });
 
-        // 2. 呈现图形序列
-        trial.sequence.forEach(shape => {
-            timeline.push({
-                type: jsPsychImageKeyboardResponse,
-                stimulus: shape,
-                choices: "NO_KEYS",
-                trial_duration: config.shape_duration,
-                post_trial_gap: config.isi,
-                data: {
-                    phase: trial.phase,
-                    stage: 'shape',
-                    shape: shape
-                }
-            });
-        });
+        // 3. 构建当前试次的Psychophysics刺激数组（整合注视点、图形、文字）
+        const trialStimuli = [
+            // 注视点
+            {
+                obj_type: 'cross',
+                startX: "center",
+                startY: "center",
+                line_length: 40,
+                line_width: 5,
+                line_color: 'white',
+                show_start_time: 0,
+                show_end_time: fixationDuration, // 注视点显示时长
+                origin_center: true
+            },
+            // 图形序列
+            ...shapeStimuli,
+            // 文字标签
+            {
+                obj_type: 'text',
+                content: trial.display_label,
+                startX: "center",
+                startY: "center",
+                font: `${80}px 'Arial'`,
+                text_color: 'white',
+                show_start_time: currentTime, // 图形序列结束后开始显示
+                show_end_time: currentTime + config.label_duration, // 文字显示时长
+                origin_center: true
+            }
+        ];
 
-        // 3. 呈现文字标签并收集反应
+        // 4. 加入当前试次的Psychophysics Trial
         timeline.push({
-            type: jsPsychHtmlKeyboardResponse,
-            stimulus: `<div style="font-size: 60px;">${trial.display_label}</div>`,
+            type: jsPsychPsychophysics,
+            stimuli: trialStimuli,
             choices: ['f', 'j'],
-            stimulus_duration: config.label_duration,
-            trial_duration: config.response_window,   // 标签呈现就可以按键反应
-            response_ends_trial: true,
+            response_ends_trial: true, // 按键后结束试次
+            response_start_time: currentTime, // 开始作答时间
+            trial_duration: currentTime + config.response_window, // 结束时间，一共持续2000ms
             data: {
                 subj_idx: id,
                 phase: trial.phase,
                 stage: 'response',
                 TaskRelevance: trial.task,
-                CognitiveLoad: trial.n_back,   // 认知负荷n值
-                isMatch: trial.is_match,   // 是否匹配
+                CognitiveLoad: trial.n_back,
+                ismatch: trial.is_match,
                 Identity: trial.shape_meaning,
                 display_label: trial.display_label,
                 nBack_shape: trial.nBack_shape,
@@ -296,16 +320,17 @@ function createTrialTimeline(trials) {
                 correct_response: trial.correct_response
             },
             on_start: function () {
-                // console.log('当前试次图形身份是', trial.shape_meaning,)
                 console.log('当前试次匹配情况是', trial.is_match);
-                console.log('目标处的图形是', trial.nBack_shape);
+                console.log('当前试次身份是', trial.shape_meaning);
+                console.log('当前试次目标处呈现图形是', trial.nBack_shape);
                 console.log('呈现的标签是', trial.display_label);
                 console.log('正确反应是', trial.correct_response);
-
             },
             on_finish: function (data) {
                 data.correct_response = trial.correct_response;
-                data.correct = data.correct_response == data.response;   // 按键正确与否
+                data.correct = data.correct_response == data.response;
+                console.log('开始反应时间', currentTime);
+                console.log('反应结束时间', currentTime + config.response_window);
             }
         });
         // 4. 单个试次反馈
@@ -376,7 +401,7 @@ TR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.task
 TIR_high_main_result = createTrials(n=config.n.high, phase='main', task=config.task.TIR);  // 自我与任务无关，高认知负荷
 TIR_low_main_result = createTrials(n=config.n.low, phase='main', task=config.task.TIR);  // 自我与任务无关，低认知负荷
 
-console.log('任务有关高负荷_练习试次', TR_high_prac_result);
+
 
 
 
@@ -407,7 +432,7 @@ var basic_information = {
      `,
     choices: "ALL_KEYS",
 };
-// timeline.push(basic_information);
+timeline.push(basic_information);
 
 
 // 基本信息收集
@@ -472,7 +497,7 @@ var information = {
         }
     ]
 };
-// timeline.push(information);
+timeline.push(information);
 
 
 // ====================设备调整阶段==================== //
@@ -516,7 +541,7 @@ var chinrest = {
     adjustment_button_prompt: `图像大小对准后，请单击此处`,
     viewing_distance_report: `<p>根据您的反应，您距离屏幕<span id='distance-estimate' style='font-weight: bold;'></span> <br>这大概是对的吗？</p> `,
 };
-// timeline.push(chinrest)
+timeline.push(chinrest)
 
 
 // 进入全屏
@@ -526,7 +551,7 @@ var fullscreen_trial = {
     message: "<p><span class='add_' style='color:white; font-size: 35px;'> 实验需要全屏模式，实验期间请勿退出全屏。 </span></p >",
     button_label: " <span class='add_' style='color:black; font-size: 20px;'> 点击这里进入全屏</span>"
 }
-// timeline.push(fullscreen_trial);
+timeline.push(fullscreen_trial);
 
 
 
@@ -569,14 +594,15 @@ function task_instr(condition_result) {
                 })
                 return [
                     start + `<div class="box">${tmpI}</div>`,
-                    `<p>当前任务中，屏幕中央将呈现图形序列，</p>
-                 <p><span style="color: lightgreen;">您需要在出现空屏时,判断空屏前${nBack}个图形的颜色与形状是否匹配, </span></p>
+                    `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
+                 <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配,</span></p>
                  <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
                  <p style ='font-size: 20px';>在实验过程中请将您<span style="color: lightgreen; ">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
                     `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
                  <p>通过练习后，您将进入正式实验。</p></span>`,
                     middle + end];
             }
+
 
         },
         show_clickable_nav: true,
@@ -926,7 +952,6 @@ const taskSequence = [
     orderId >> 1 & 1 ? task_TIR_high : task_TIR_low
 ]
 
-// console.log("被试的顺序ID是", orderId)
 console.log("被试抽中的顺序是", taskSequence)
 
 // 4. 按照既定顺序执行4个任务timeline
