@@ -412,7 +412,7 @@ var welcome = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
         <p>您好，欢迎参加本实验。</p>
-        <p>本实验由4个按键任务组成, 预计用时50分钟</p>
+        <p>本实验由4个按键任务组成, 预计用时80分钟</p>
         <p>请您根据指导语完成任务。</p>
         <p><div style = "color: green"><按任意键至下页></div> </p>
     `,
