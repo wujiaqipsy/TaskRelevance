@@ -580,7 +580,7 @@ function task_instr(condition_result) {
                 return [
                     start + `<div class="box">${tmpI}</div>`,
                     `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
-                 <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配, </span></p>
+                 <p><span style="color: lightgreen;">您需要在标签出现时,判断该标签前的倒数第${nBack}个图形是否与当前标签匹配, </span></p>
                  <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
                  <p style ='font-size: 20px';>在实验过程中请将您<span style="color: lightgreen; ">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
                     `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
@@ -595,7 +595,7 @@ function task_instr(condition_result) {
                 return [
                     start + `<div class="box">${tmpI}</div>`,
                     `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
-                 <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配,</span></p>
+                 <p><span style="color: lightgreen;">您需要在标签出现时,判断该标签前的倒数第${nBack}个图形是否与当前标签匹配,</span></p>
                  <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
                  <p style ='font-size: 20px';>在实验过程中请将您<span style="color: lightgreen; ">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
                     `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>

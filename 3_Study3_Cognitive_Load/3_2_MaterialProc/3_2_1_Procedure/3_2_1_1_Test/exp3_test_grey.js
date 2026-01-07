@@ -52,8 +52,8 @@ const config = {
     isi: 500,   // 图形间隔
 
     trialsPerCondition: {  
-        prac: 1,   // 4， 练习阶段，每个条件重复4次，4个条件，练习试次16次。一个试次7s，练习阶段2mins左右
-        main: 1,   // 16，正式实验，每个条件重复16次，结合3个block，每个条件有48个试次。单个block总试次数=16*4=64次，一个block 6分钟,一个任务18分钟，4个任务1h12mins
+        prac: 1,   // 4， 练习阶段，每个条件重复4次，练习试次=重复4次*4个条件=16次。一个试次7s，练习阶段2mins左右
+        main: 1,   // 16，正式实验，每个条件重复16次，单个block总试次数=重复次数16*4个条件=64次；3个block，1个block每个条件重复16次，每个条件有48个试次。一个block 6分钟,一个任务18分钟，4个任务1h12mins
     },
 
     n: {
@@ -412,7 +412,7 @@ var welcome = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
         <p>您好，欢迎参加本实验。</p>
-        <p>本实验由4个按键任务组成, 预计用时50分钟</p>
+        <p>本实验由4个按键任务组成, 预计用时80分钟</p>
         <p>请您根据指导语完成任务。</p>
         <p><div style = "color: green"><按任意键至下页></div> </p>
     `,
@@ -580,7 +580,7 @@ function task_instr(condition_result) {
                 return [
                     start + `<div class="box">${tmpI}</div>`,
                     `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
-                 <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配, </span></p>
+                 <p><span style="color: lightgreen;">您需要在标签出现时,判断该标签前的倒数第${nBack}个图形是否与当前标签匹配, </span></p>
                  <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
                  <p style ='font-size: 20px';>在实验过程中请将您<span style="color: lightgreen; ">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
                     `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
@@ -595,7 +595,7 @@ function task_instr(condition_result) {
                 return [
                     start + `<div class="box">${tmpI}</div>`,
                     `<p>当前任务中，屏幕中央将呈现图形序列与文字标签，</p>
-                 <p><span style="color: lightgreen;">您需要在标签出现时,判断标签前${nBack}个图形是否与当前标签匹配,</span></p>
+                 <p><span style="color: lightgreen;">您需要在标签出现时,判断该标签前的倒数第${nBack}个图形是否与当前标签匹配,</span></p>
                  <p>如果二者<span style="color: lightgreen;">匹配</span>，请按 <span style="color: lightgreen">${key[0]}键</span>，如果<span style="color: lightgreen;">不匹配</span>，请按<span style="color: lightgreen"> ${key[1]}键。</p>
                  <p style ='font-size: 20px';>在实验过程中请将您<span style="color: lightgreen; ">左手与右手的食指</span>分别放在电脑键盘的相应键位上准备按键。</p></span>`,
                     `<p>接下来，您将进入练习部分，<span style="color: lightgreen;">请您又快又准地进行按键。</span></p>
