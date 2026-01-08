@@ -389,7 +389,7 @@ plot_rt_m <- plot_cond_rt_m +
   ggplot2::scale_color_discrete(name = "身份")
 
 plot_rt_m
-# ggplot2::ggsave(file.path(figDir, "RT_observed_data.png"))
+ggplot2::ggsave(file.path(figDir, "RT_observed_data.png"))
 
 
 ```
@@ -466,7 +466,7 @@ plot_acc <- plot_cond_acc +
   ggplot2::scale_color_discrete(name = "身份")
 
 plot_acc
-# ggplot2::ggsave(file.path(figDir, "ACC_observed_data.png"))
+ggplot2::ggsave(file.path(figDir, "ACC_observed_data.png"))
 
 ```
 
@@ -604,7 +604,7 @@ df.v.trial <- df.v %>%
                               (ismatch == 0 & acc == 0), 1, 0),
     ismatch_num = ifelse(ismatch == 1, 0.5, -0.5),   # 用于RT建模
     
-    Identity = factor(Identity, levels = c("自我", "朋友", "生人")),
+    Identity = factor(Identity, levels = c("self", "friend", "stranger")),
   )%>%
   dplyr::select(subj_idx, TaskRelevance, Identity, ismatch, saymatch, ismatch_num, key_press, acc, rt )
 
@@ -616,47 +616,19 @@ df.tr.trial <- df.v.trial %>%
 # 自我与任务无关数据
 df.tir.trial <- df.v.trial %>%
   dplyr::filter(TaskRelevance == "TaskIrrelevant")
+
 ```
 
 ## 1、任务有关RT
 ### （1）模型拟合
 ```{r}
-# 使用ismatch_num拟合RT模型
-var_both_tr_rt_model <- df.tr.trial %>%
-  dplyr::mutate(rt_sec = rt / 1000) %>%
-  dplyr::filter(acc == 1) %>%         # only correct trials
-  brms::brm(
-    rt_sec ~ Identity * ismatch_num +
-      (Identity * ismatch_num | subj_idx),
-    family = lognormal(),
-    data = .,
-    chains = 4,
-    warmup = 1000,
-    iter = 5000,
-    thin = 1,
-    control = list(adapt_delta = .95),
-    cores = parallel::detectCores(),
-    backend = 'cmdstanr',
-    save_pars = save_pars(all = TRUE),
-    file = file.path(curDir, "glmmModels/TR_RT_0.5")
-  )
-
-# 数据类型以及编码值
-# rt_sec：数值型，取值范围为RT正常范围
-# Identity：因子，自我为基线，取值为自我、朋友、生人
-# ismatch_num：数值，值为-0.5（不匹配），0.5（匹配）
-# subj_idx：数值
-```
-
-```{r}
-
-# # 使用ismatch拟合RT模型
+# # 使用ismatch_num（-0.5，0.5）拟合RT模型
 # var_both_tr_rt_model <- df.tr.trial %>%
 #   dplyr::mutate(rt_sec = rt / 1000) %>%
 #   dplyr::filter(acc == 1) %>%         # only correct trials
 #   brms::brm(
-#     rt_sec ~ Identity * ismatch +
-#       (Identity * ismatch | subj_idx),
+#     rt_sec ~ Identity * ismatch_num +
+#       (Identity * ismatch_num | subj_idx),
 #     family = lognormal(),
 #     data = .,
 #     chains = 4,
@@ -667,8 +639,39 @@ var_both_tr_rt_model <- df.tr.trial %>%
 #     cores = parallel::detectCores(),
 #     backend = 'cmdstanr',
 #     save_pars = save_pars(all = TRUE),
-#     file = file.path(curDir, "glmmModels/TR_RT_1")
+#     file = file.path(curDir, "glmmModels/TR_RT_0.5")
 #   )
+# 
+# # 数据类型以及编码值
+# # rt_sec：数值型，取值范围为RT正常范围
+# # Identity：因子，自我为基线，取值为自我、朋友、生人
+# # ismatch_num：数值，值为-0.5（不匹配），0.5（匹配）
+# # subj_idx：数值
+# 
+# summary(var_both_tr_rt_model)
+```
+
+```{r}
+
+# 使用ismatch（0，1）拟合RT模型
+var_both_tr_rt_model <- df.tr.trial %>%
+  dplyr::mutate(rt_sec = rt / 1000) %>%
+  dplyr::filter(acc == 1) %>%         # only correct trials
+  brms::brm(
+    rt_sec ~ Identity * ismatch +
+      (Identity * ismatch | subj_idx),
+    family = lognormal(),
+    data = .,
+    chains = 4,
+    warmup = 1000,
+    iter = 5000,
+    thin = 1,
+    control = list(adapt_delta = .95),
+    cores = parallel::detectCores(),
+    backend = 'cmdstanr',
+    save_pars = save_pars(all = TRUE),
+    file = file.path(curDir, "glmmModels/TR_RT_1")
+  )
 
 # 数据类型以及编码值
 # rt_sec：数值型，取值范围为RT正常范围
@@ -677,7 +680,7 @@ var_both_tr_rt_model <- df.tr.trial %>%
 # subj_idx：数值
 
 
-# summary(var_both_tr_rt_model)
+summary(var_both_tr_rt_model)
 
 # 固定效应
 #                      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
@@ -720,12 +723,17 @@ summary(var_both_tr_rt_model)
 # 轨迹图(改)
 target_pars <- c(
   "b_Intercept",
-  "b_Identity朋友",
-  "b_Identity生人",
-  "b_ismatch_num",
-  "b_Identity朋友:ismatch_num",
-  "b_Identity生人:ismatch_num"
+  "b_Identityfriend",
+  "b_Identitystranger",
+  "b_ismatch",
+  "b_Identityfriend:ismatch",
+  "b_Identitystranger:ismatch"
+  # "b_ismatch_num",
+  # "b_Identityfriend:ismatch_num",
+  # "b_Identitystranger:ismatch_num"
   )
+
+
 
 trace_plot <- bayesplot::mcmc_trace(
   var_both_tr_rt_model, 
@@ -819,11 +827,15 @@ df_tr_rt_pop <- var_both_tr_rt_model %>%
   # 计算各条件反应时分布
   dplyr::mutate(
     Self_NonMatch = Intercept,   #  self和nonmatch被编码为0              
-    Friend_NonMatch = Intercept  + Identity朋友,
-    Stranger_NonMatch = Intercept  + Identity生人,
-    Self_Match = Intercept + ismatch_num,             
-    Friend_Match = Intercept + ismatch_num + Identity朋友 + `Identity朋友:ismatch_num`,
-    Stranger_Match = Intercept + ismatch_num + Identity生人 + `Identity生人:ismatch_num`)%>%
+    Friend_NonMatch = Intercept  + Identityfriend,
+    Stranger_NonMatch = Intercept  + Identitystranger,
+    Self_Match = Intercept + ismatch, 
+    Friend_Match = Intercept + ismatch + Identityfriend + `Identityfriend:ismatch`,
+    Stranger_Match = Intercept + ismatch + Identitystranger + `Identitystranger:ismatch`
+    # Self_Match = Intercept + ismatch_num,             
+    # Friend_Match = Intercept + ismatch_num + Identityfriend + `Identityfriend:ismatch_num`,
+    # Stranger_Match = Intercept + ismatch_num + Identitystranger + `Identitystranger:ismatch_num`
+    )%>%
   dplyr::select(`.chain`, `.iteration`, `.draw`,
                 Self_Match, Friend_Match, Stranger_Match,
                 Self_NonMatch, Friend_NonMatch, Stranger_NonMatch) %>%
@@ -959,7 +971,8 @@ p_tr_rt <- df_tr_rt_pop %>%
 
 # theme_apa()
 p_tr_rt
-# ggsave(file.path(figDir, "RT_pop_distribution.png"))
+
+ggsave(file.path(figDir, "Tr_RT.png"))
 ```
 
 ```{r}
@@ -1005,7 +1018,8 @@ p_tr_rt_diff <- df_tr_rt_pop_diff %>%
 
 p_tr_rt_diff
 
-# ggsave(file.path(figDir, "RT_diff_compare.png"))
+
+ggsave(file.path(figDir, "Tr_RT_diff.png"))
 
 
 ```
@@ -1057,6 +1071,8 @@ var_both_tr_sdt_model <- brms::brm(saymatch ~ 0 + Identity + Identity:ismatch +
 # saymatch:数值
 # Identity：因子，自我基线
 # ismatch：数值，1匹配，0不匹配
+
+summary(var_both_tr_sdt_model)
 ```
 
 ### （2）模型评估
@@ -1077,13 +1093,14 @@ summary(var_both_tr_sdt_model)
 ```{r}
 # 轨迹图
 target_pars <- c(
-  "b_Identity自我",
-  "b_Identity朋友",
-  "b_Identity生人",
-  "b_Identity自我:ismatch",
-  "b_Identity朋友:ismatch",
-  "b_Identity生人:ismatch"
+  "b_Identityself",
+  "b_Identityfriend",
+  "b_Identitystranger",
+  "b_Identityself:ismatch",
+  "b_Identityfriend:ismatch",
+  "b_Identitystranger:ismatch"
   )
+
 
 trace_plot <- bayesplot::mcmc_trace(
   var_both_tr_sdt_model, 
@@ -1163,12 +1180,12 @@ df_tr_sdt_pop <- var_both_tr_sdt_model %>%
                 value = .value) %>%  # gather_draws会将变量存储为1列，所有的值存储为另一列
   dplyr::ungroup() %>%
   dplyr::mutate(term = gsub("b_", "", term),
-                term = dplyr::case_when((term == "Identity自我") ~ "c_Self",
-                                              (term == "Identity朋友") ~ "c_Friend",
-                                              (term == "Identity生人") ~ "c_Stranger",
-                                              (term == "Identity自我:ismatch") ~ "dprime_Self",
-                                              (term == "Identity朋友:ismatch") ~ "dprime_Friend",
-                                              (term == "Identity生人:ismatch") ~ "dprime_Stranger"),
+                term = dplyr::case_when((term == "Identityself") ~ "c_Self",
+                                              (term == "Identityfriend") ~ "c_Friend",
+                                              (term == "Identitystranger") ~ "c_Stranger",
+                                              (term == "Identityself:ismatch") ~ "dprime_Self",
+                                              (term == "Identityfriend:ismatch") ~ "dprime_Friend",
+                                              (term == "Identitystranger:ismatch") ~ "dprime_Stranger"),
                       term = factor(term, levels = c("c_Self", "c_Friend", "c_Stranger",
                                                      "dprime_Self", "dprime_Friend", "dprime_Stranger")))
 
@@ -1278,7 +1295,7 @@ p_sdt_rt <- df_tr_sdt_pop %>%
 # theme_apa()
 
 p_sdt_rt
-ggsave(file.path(figDir, "dprime_pop_distribution.png"))
+ggsave(file.path(figDir, "Tr_dprime.png"))
 ```
 
 ```{r}
@@ -1322,73 +1339,74 @@ p_tr_sdt_diff <- df_tr_sdt_pop_diff %>%
 
 p_tr_sdt_diff
 
-ggsave(file.path(figDir, "dprime_diff_compare.png"))
+
+ggsave(file.path(figDir, "Tr_dprime_diff.png"))
 
 ```
 
 ## 3、任务无关RT
 ### （1）模型拟合
 ```{r}
-# fit a three-level hierarchical model for RT, didn't specify the prior, lognormal, effective coding
-var_both_tir_rt_model <- df.tir.trial %>%
-  dplyr::mutate(rt_sec = rt/1000)%>%
-        dplyr::filter(acc == 1) %>%         # only correct trials
-        brms::brm(rt_sec ~ Identity* ismatch_num + 
-                          (Identity* ismatch_num | subj_idx),
-                  family=lognormal(),
-                  data = .,
-                  chains = 4,
-                  warmup = 1000,
-                  iter = 5000,
-                  thin = 1,
-                  control = list(adapt_delta = .95),
-                  cores = parallel::detectCores(),
-                  backend = 'cmdstanr',  # with cmdstanr
-                  save_pars = save_pars(all = TRUE),
-                  file = file.path(curDir, "glmmModels/TIR_RT_0.5")
-                  )
-
-# rt_sec:数值
-# Identity：因子，自我基线
-# ismatch_num：数值，-0.5（不匹配），0.5（匹配），ismatch：自我条件下，不匹配向匹配变化
-
-summary(var_both_tir_rt_model)
-# Regression Coefficients:
-#                          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# Intercept                   -0.36      0.02    -0.41    -0.32 1.01      919     2228
-# Identity朋友                 0.02      0.01     0.00     0.04 1.00     2376     5319
-# Identity生人                 0.02      0.01     0.00     0.04 1.00     3566     6540
-# ismatch_num                 -0.11      0.01    -0.13    -0.09 1.00     5403     8121
-# Identity朋友:ismatch_num     0.00      0.01    -0.02     0.03 1.00     5320     9276
-# Identity生人:ismatch_num     0.03      0.01     0.00     0.05 1.00     6522     9697
-```
-
-```{r}
-# fit a three-level hierarchical model for RT, didn't specify the prior, lognormal, effective coding
+# # fit a three-level hierarchical model for RT, didn't specify the prior, lognormal, effective coding
 # var_both_tir_rt_model <- df.tir.trial %>%
 #   dplyr::mutate(rt_sec = rt/1000)%>%
 #         dplyr::filter(acc == 1) %>%         # only correct trials
-#         brms::brm(rt_sec ~ Identity* ismatch + 
-#                           (Identity* ismatch | subj_idx),
+#         brms::brm(rt_sec ~ Identity* ismatch_num + 
+#                           (Identity* ismatch_num | subj_idx),
 #                   family=lognormal(),
 #                   data = .,
 #                   chains = 4,
 #                   warmup = 1000,
-#                   iter = 5000, # 5000
+#                   iter = 5000,
 #                   thin = 1,
 #                   control = list(adapt_delta = .95),
 #                   cores = parallel::detectCores(),
 #                   backend = 'cmdstanr',  # with cmdstanr
 #                   save_pars = save_pars(all = TRUE),
-#                   file = file.path(curDir, "glmmModels/TIR_RT_1")
+#                   file = file.path(curDir, "glmmModels/TIR_RT_0.5")
 #                   )
+# 
+# # rt_sec:数值
+# # Identity：因子，自我基线
+# # ismatch_num：数值，-0.5（不匹配），0.5（匹配），ismatch：自我条件下，不匹配向匹配变化
+# 
+# summary(var_both_tir_rt_model)
+# # Regression Coefficients:
+# #                          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# # Intercept                   -0.36      0.02    -0.41    -0.32 1.01      919     2228
+# # Identity朋友                 0.02      0.01     0.00     0.04 1.00     2376     5319
+# # Identity生人                 0.02      0.01     0.00     0.04 1.00     3566     6540
+# # ismatch_num                 -0.11      0.01    -0.13    -0.09 1.00     5403     8121
+# # Identity朋友:ismatch_num     0.00      0.01    -0.02     0.03 1.00     5320     9276
+# # Identity生人:ismatch_num     0.03      0.01     0.00     0.05 1.00     6522     9697
+```
+
+```{r}
+# fit a three-level hierarchical model for RT, didn't specify the prior, lognormal, effective coding
+var_both_tir_rt_model <- df.tir.trial %>%
+  dplyr::mutate(rt_sec = rt/1000)%>%
+        dplyr::filter(acc == 1) %>%         # only correct trials
+        brms::brm(rt_sec ~ Identity* ismatch +
+                          (Identity* ismatch | subj_idx),
+                  family=lognormal(),
+                  data = .,
+                  chains = 4,
+                  warmup = 1000,
+                  iter = 5000, # 5000
+                  thin = 1,
+                  control = list(adapt_delta = .95),
+                  cores = parallel::detectCores(),
+                  backend = 'cmdstanr',  # with cmdstanr
+                  save_pars = save_pars(all = TRUE),
+                  file = file.path(curDir, "glmmModels/TIR_RT_1")
+                  )
 
 # rt_sec:数值
 # Identity：因子，自我基线
 # ismatch_num：数值，0（不匹配），1（匹配），ismatch：自我条件下，不匹配向匹配变化
 
 
-# summary(var_both_tir_rt_model)
+summary(var_both_tir_rt_model)
 # Regression Coefficients:
 #                      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # Intercept               -0.31      0.02    -0.35    -0.27 1.00     1889     3401
@@ -1409,11 +1427,14 @@ summary(var_both_tir_rt_model)
 # 轨迹图(改)
 target_pars <- c(
   "b_Intercept",
-  "b_Identity朋友",
-  "b_Identity生人",
-  "b_ismatch_num",
-  "b_Identity朋友:ismatch_num",
-  "b_Identity生人:ismatch_num"
+  "b_Identityfriend",
+  "b_Identitystranger",
+  "b_ismatch",
+  "b_Identityfriend:ismatch",
+  "b_Identitystranger:ismatch"
+  # "b_ismatch_num",
+  # "b_Identityfriend:ismatch_num",
+  # "b_Identitystranger:ismatch_num"
   )
 
 trace_plot <- bayesplot::mcmc_trace(
@@ -1496,11 +1517,15 @@ df_tir_rt_pop <- var_both_tir_rt_model %>%
   # 计算各条件反应时分布
   dplyr::mutate(
     Self_NonMatch = Intercept,   #  self和nonmatch被编码为0              
-    Friend_NonMatch = Intercept  + Identity朋友,
-    Stranger_NonMatch = Intercept  + Identity生人,
-    Self_Match = Intercept + ismatch_num,             
-    Friend_Match = Intercept + ismatch_num + Identity朋友 + `Identity朋友:ismatch_num`,
-    Stranger_Match = Intercept + ismatch_num + Identity生人 + `Identity生人:ismatch_num`)%>%
+    Friend_NonMatch = Intercept  + Identityfriend,
+    Stranger_NonMatch = Intercept  + Identitystranger,
+    Self_Match = Intercept + ismatch,             
+    Friend_Match = Intercept + ismatch + Identityfriend + `Identityfriend:ismatch`,
+    Stranger_Match = Intercept + ismatch + Identitystranger + `Identitystranger:ismatch`
+    # Self_Match = Intercept + ismatch_num,             
+    # Friend_Match = Intercept + ismatch_num + Identityfriend + `Identityfriend:ismatch_num`,
+    # Stranger_Match = Intercept + ismatch_num + Identitystranger + `Identitystranger:ismatch_num`
+    )%>%
   dplyr::select(`.chain`, `.iteration`, `.draw`,
                 Self_Match, Friend_Match, Stranger_Match,
                 Self_NonMatch, Friend_NonMatch, Stranger_NonMatch) %>%
@@ -1632,6 +1657,7 @@ p_tir_rt <- df_tir_rt_pop %>%
                 )
 # theme_apa()
 p_tir_rt
+ggsave(file.path(figDir, "Tir_RT.png"))
 ```
 
 ```{r}
@@ -1677,7 +1703,7 @@ p_tir_rt_diff <- df_tir_rt_pop_diff %>%
 
 p_tir_rt_diff
 
-# ggsave(file.path(figDir, "diff_compare.png"))
+ggsave(file.path(figDir, "Tir_RT_diff.png"))
 
 ```
 
@@ -1703,6 +1729,8 @@ var_both_tir_sdt_model <- brms::brm(saymatch ~ 0 + Identity + Identity:ismatch +
 # saymatch:数值
 # Identity：因子，自我基线
 # ismatch：数值，1匹配，0不匹配
+
+summary(var_both_tir_sdt_model)
 ```
 
 ### （2）模型评估
@@ -1723,12 +1751,12 @@ summary(var_both_tir_sdt_model)
 ```{r}
 # 轨迹图
 target_pars <- c(
-  "b_Identity自我",
-  "b_Identity朋友",
-  "b_Identity生人",
-  "b_Identity自我:ismatch",
-  "b_Identity朋友:ismatch",
-  "b_Identity生人:ismatch"
+  "b_Identityself",
+  "b_Identityfriend",
+  "b_Identitystranger",
+  "b_Identityself:ismatch",
+  "b_Identityfriend:ismatch",
+  "b_Identitystranger:ismatch"
   )
 
 trace_plot <- bayesplot::mcmc_trace(
@@ -1807,12 +1835,12 @@ df_tir_sdt_pop <- var_both_tir_sdt_model %>%
                 value = .value) %>%  # gather_draws会将变量存储为1列，所有的值存储为另一列
   dplyr::ungroup() %>%
   dplyr::mutate(term = gsub("b_", "", term),
-                term = dplyr::case_when((term == "Identity自我") ~ "c_Self",
-                                              (term == "Identity朋友") ~ "c_Friend",
-                                              (term == "Identity生人") ~ "c_Stranger",
-                                              (term == "Identity自我:ismatch") ~ "dprime_Self",
-                                              (term == "Identity朋友:ismatch") ~ "dprime_Friend",
-                                              (term == "Identity生人:ismatch") ~ "dprime_Stranger"),
+                term = dplyr::case_when((term == "Identityself") ~ "c_Self",
+                                              (term == "Identityfriend") ~ "c_Friend",
+                                              (term == "Identitystranger") ~ "c_Stranger",
+                                              (term == "Identityself:ismatch") ~ "dprime_Self",
+                                              (term == "Identityfriend:ismatch") ~ "dprime_Friend",
+                                              (term == "Identitystranger:ismatch") ~ "dprime_Stranger"),
                       term = factor(term, levels = c("c_Self", "c_Friend", "c_Stranger",
                                                      "dprime_Self", "dprime_Friend", "dprime_Stranger")))
 
@@ -1922,6 +1950,7 @@ p_sdt <- df_tir_sdt_pop %>%
 # theme_apa()
 
 p_sdt
+ggsave(file.path(figDir, "Tir_dprime.png"))
 ```
 
 ```{r}
@@ -1965,7 +1994,7 @@ p_tir_sdt_diff <- df_tir_sdt_pop_diff %>%
 
 p_tir_sdt_diff
 
-# ggsave(file.path(figDir, "diff_compare.png"))
+ggsave(file.path(figDir, "Tir_dprime_diff.png"))
 
 ```
 
