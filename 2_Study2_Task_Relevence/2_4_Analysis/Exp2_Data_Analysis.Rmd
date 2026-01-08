@@ -652,7 +652,6 @@ df.tir.trial <- df.v.trial %>%
 ```
 
 ```{r}
-
 # 使用ismatch（0，1）拟合RT模型
 var_both_tr_rt_model <- df.tr.trial %>%
   dplyr::mutate(rt_sec = rt / 1000) %>%
