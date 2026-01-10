@@ -38,12 +38,13 @@ pacman::p_load(
   'bayestestR',   # 贝叶斯统计
   'bayesplot',    # 贝叶斯绘图
   'ggplot2',      # 数据可视化
+  'see',          # 数据可视化
   "papaja",       # APA格式
   'cmdstanr',
   'report'        # 结果报告
                )
 
-# ggplot2::theme_set(theme_modern())
+theme_set(theme_modern())
 ```
 
 # 数据准备
@@ -376,7 +377,7 @@ df.clas.rt.plot <- df.clas.rt.subj  %>%
     Priority = factor(
       Priority,
       levels = c('self_goal', 'friend_goal', 'stranger_goal'),
-      labels = c('自我目标', '朋友目标', '生人目标')
+      labels = c('自我优先', '朋友优先', '生人优先')
     )
   ) 
 
@@ -422,7 +423,7 @@ plot_rt_m <- plot_cond_rt_m +
                      linewidth=0.8,
                      color="#000000",
                      alpha=0.05) +
-  ggplot2::scale_x_continuous(breaks = c(1, 2, 3), labels = c("自我目标", "朋友目标", "生人目标")) +
+  ggplot2::scale_x_continuous(breaks = c(1, 2, 3), labels = c("自我优先", "朋友优先", "生人优先")) +
   ggplot2::labs(y = "反应时", x = NULL) +
   ggplot2::scale_color_discrete(name = "身份")
 
@@ -461,7 +462,7 @@ df.clas.acc.plot <- df.clas.acc.subj  %>%
     Priority = factor(
       Priority,
       levels = c('self_goal', 'friend_goal', 'stranger_goal'),
-      labels = c('自我目标', '朋友目标', '生人目标')
+      labels = c('自我优先', '朋友优先', '生人优先')
     )
   ) 
 
@@ -502,7 +503,7 @@ plot_acc <- plot_cond_acc +
                      linewidth=0.8,
                      color="#000000",
                      alpha=0.05) +
-  ggplot2::scale_x_continuous(breaks = c(1, 2, 3), labels = c("自我目标", "朋友目标", "生人目标")) +
+  ggplot2::scale_x_continuous(breaks = c(1, 2, 3), labels = c("自我优先", "朋友优先", "生人优先")) +
   ggplot2::labs(y = "正确率", x = NULL) +
   ggplot2::scale_color_discrete(name = "身份")
 
@@ -556,7 +557,7 @@ var_both_rt_model <- df.clas.trial %>%
 # 数据类型以及编码值
 # rt_sec：数值型，取值范围为RT正常范围
 # Identity：因子，自我为基线，取值为自我、朋友、生人
-# Priority：因子，自我目标为基线，取值为自我目标、朋友目标、生人目标
+# Priority：因子，自我优先为基线，取值为自我优先、朋友优先、生人优先
 # subj_idx：数值
 ```
 
@@ -585,10 +586,10 @@ summary(var_both_rt_model)
 # 朋友（0，1，0）
 # 生人（0，0，1）
 
-# X3=朋友目标的数据[带入(0, 1, 0)]；X4=生人目标的数据[带入(0, 0, 1)]
-# 自我目标（0，0，0）
-# 朋友目标（0，1，0）
-# 生人目标（0，0，1）
+# X3=朋友优先的数据[带入(0, 1, 0)]；X4=生人优先的数据[带入(0, 0, 1)]
+# 自我优先（0，0，0）
+# 朋友优先（0，1，0）
+# 生人优先（0，0，1）
 ```
 
 ```{r}
@@ -640,47 +641,47 @@ ggsave(file.path(figDir, "parameters_distribution.png"))
 
 ### （3）模型比较
 ```{r}
-# MAE
-calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
-  # 计算每个观测的后验预测均值
-  pre_y_mean <- colMeans(model_ppc)
-  
-  # 构建数据框：预测均值 + 原始观测值
-  MAE_df <- data.frame(
-    RT_ppc_mean = pre_y_mean,
-    RT_original = original_data[[y_var]]  # 提取指定的响应变量观测值
-  )
-  
-  # 计算绝对预测误差
-  MAE_df <- MAE_df %>%
-    mutate(pre_error = abs(RT_original - RT_ppc_mean))
-  
-  # 计算误差的中位数
-  MAE_value <- median(MAE_df$pre_error, na.rm = TRUE)
-  
-  return(MAE_value)
-}
-
-# 后验预测
-rt_var_both_ppc <- posterior_predict(
-  object = var_both_rt_model,
-)
-
-rt_var_both_mae <- calculate_MAE(rt_var_both_ppc, var_both_rt_model$data, "rt_sec")
+# # MAE
+# calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
+#   # 计算每个观测的后验预测均值
+#   pre_y_mean <- colMeans(model_ppc)
+#   
+#   # 构建数据框：预测均值 + 原始观测值
+#   MAE_df <- data.frame(
+#     RT_ppc_mean = pre_y_mean,
+#     RT_original = original_data[[y_var]]  # 提取指定的响应变量观测值
+#   )
+#   
+#   # 计算绝对预测误差
+#   MAE_df <- MAE_df %>%
+#     mutate(pre_error = abs(RT_original - RT_ppc_mean))
+#   
+#   # 计算误差的中位数
+#   MAE_value <- median(MAE_df$pre_error, na.rm = TRUE)
+#   
+#   return(MAE_value)
+# }
+# 
+# # 后验预测
+# rt_var_both_ppc <- posterior_predict(
+#   object = var_both_rt_model,
+# )
+# 
+# rt_var_both_mae <- calculate_MAE(rt_var_both_ppc, var_both_rt_model$data, "rt_sec")
 
 ```
 
 ```{r}
 # loo
-loo <- loo::loo(var_both_rt_model)
+# loo <- loo::loo(var_both_rt_model)
 ```
 
 
 ### （4）后验预测检验
 ```{r}
-# performance::check_predictions(RT_m1, check_range = TRUE)
-bayesplot::pp_check(var_both_rt_model, type = "dens_overlay", ndraws = 1000)
-ggsave(file.path(figDir, "modle_estimation.png"))
+# # performance::check_predictions(RT_m1, check_range = TRUE)
+# bayesplot::pp_check(var_both_rt_model, type = "dens_overlay", ndraws = 1000)
+# ggsave(file.path(figDir, "modle_estimation.png"))
 ```
 
 
@@ -740,10 +741,10 @@ df_rt_pop_diff_wide <- df_rt_pop %>%
     diff_SStr_PStr = Stranger_PStranger - Self_PStranger,
     diff_FStr_PStr = Stranger_PStranger - Friend_PStranger,
     # 以下是我加的差异的差异，大的-小的
-    diff_diff_SF_PSF = diff_SF_PS - diff_SF_PF, # (RT[自我目标] - RT[朋友目标])[自我-朋友]
-    diff_diff_SF_PSStr = diff_SF_PS - diff_SF_PStr,# (RT[自我目标] - RT[生人目标])[自我-朋友]
-    diff_diff_SStr_PSF = diff_SStr_PS - diff_SStr_PF, # (RT[自我目标] - RT[朋友目标])[自我-生人]
-    diff_diff_SStr_PSStr = diff_SStr_PS - diff_SStr_PStr,# (RT[自我目标] - RT[生人目标])[自我-生人]
+    diff_diff_SF_PSF = diff_SF_PS - diff_SF_PF, # (RT[自我优先] - RT[朋友优先])[自我-朋友]
+    diff_diff_SF_PSStr = diff_SF_PS - diff_SF_PStr,# (RT[自我优先] - RT[生人优先])[自我-朋友]
+    diff_diff_SStr_PSF = diff_SStr_PS - diff_SStr_PF, # (RT[自我优先] - RT[朋友优先])[自我-生人]
+    diff_diff_SStr_PSStr = diff_SStr_PS - diff_SStr_PStr,# (RT[自我优先] - RT[生人优先])[自我-生人]
   ) %>%
   dplyr::select(`.chain`, `.iteration`, `.draw`,
     diff_SF_PS, diff_SStr_PS, diff_FStr_PS,
@@ -845,7 +846,7 @@ vlines <- df_rt_pop %>%
     priority = factor(
       priority,
       levels = c('PSelf', 'PFriend', 'PStranger'),
-      labels = c("自我目标", "朋友目标", "生人目标")
+      labels = c("自我优先", "朋友优先", "生人优先")
     )
   ) %>%
   dplyr::group_by(Identity, priority) %>%
@@ -864,7 +865,7 @@ p_rt1 <- df_rt_pop %>%
     priority = factor(
       priority,
       levels = c('PSelf', 'PFriend', 'PStranger'),
-      labels = c("自我目标", "朋友目标", "生人目标")
+      labels = c("自我优先", "朋友优先", "生人优先")
     )
   ) %>%
   ggplot2::ggplot(aes(x = value, color = Identity)) +
@@ -877,7 +878,9 @@ p_rt1 <- df_rt_pop %>%
   scale_fill_brewer(palette = "Dark2") +
   ggplot2::labs(x = expression('反应时后验分布'),
                 color = "身份",
-                fill = "身份",)
+                fill = "身份",)+
+  papaja::theme_apa()
+  
 
 
 p_rt1
@@ -909,15 +912,15 @@ df_rt_pop_diff <- df_rt_pop_diff_wide %>%
       'diff_FStr_PStr'
     ),
     labels = c(
-      "(RT[朋友] - RT[自我])[自我目标]",
-      "(RT[生人] - RT[自我])[自我目标]",
-      "(RT[生人] - RT[朋友])[自我目标]",
-      "(RT[朋友] - RT[自我])[朋友目标]",
-      "(RT[生人] - RT[自我])[朋友目标]",
-      "(RT[生人] - RT[朋友])[朋友目标]",
-      "(RT[朋友] - RT[自我])[生人目标]",
-      "(RT[生人] - RT[自我])[生人目标]",
-      "(RT[生人] - RT[朋友])[生人目标]"
+      "(RT[朋友] - RT[自我])[自我优先]",
+      "(RT[生人] - RT[自我])[自我优先]",
+      "(RT[生人] - RT[朋友])[自我优先]",
+      "(RT[朋友] - RT[自我])[朋友优先]",
+      "(RT[生人] - RT[自我])[朋友优先]",
+      "(RT[生人] - RT[朋友])[朋友优先]",
+      "(RT[朋友] - RT[自我])[生人优先]",
+      "(RT[生人] - RT[自我])[生人优先]",
+      "(RT[生人] - RT[朋友])[生人优先]"
     )
   ))
 
@@ -932,9 +935,22 @@ p_rt1_diff <- df_rt_pop_diff %>%
     labels = c(">0", "<0")
   ) +
   xlab("各条件反应时差异分布") +
-  facet_wrap(~ term_diff,
-             nrow = 3,
-             labeller = labeller(term_diff = label_parsed))
+  facet_wrap( ~ term_diff,
+              nrow = 3,
+              labeller = labeller(term_diff = label_parsed)) +
+  ggplot2::theme(
+    axis.text.x = ggplot2::element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1,
+      size = 10
+    ),
+    axis.text.y = ggplot2::element_text(size = 10),
+    strip.text = ggplot2::element_text(size = 8),
+    legend.title = ggplot2::element_text(size = 10),
+    legend.text = ggplot2::element_text(size = 10),
+  )
+
 
 p_rt1_diff
 
@@ -944,26 +960,26 @@ ggsave(file.path(figDir, "RT_diff.png"))
 
 
 ```{r}
-# 回归系数后验分布可视化（不重要，补充信息）
-
-## HDI 是否包含0
-RT_hdi <- bayestestR::hdi(var_both_rt_model, ci = 0.95)
-RT_hdi
-plot(RT_hdi) + scale_fill_flat()
-
-
-## 回归系数>0或<0的比例
-RR_PD <- bayestestR::p_direction(var_both_rt_model)
-RR_PD
-plot(RR_PD)
-
-# 参数不为0的比例
-RR_PS <- bayestestR::p_significance(var_both_rt_model)
-RR_PS
-x <- plot(RR_PS)
-# 提取颜色
-g <- ggplot2::ggplot_build(x)
-unique(g$data[[1]]$fill)
+# # 回归系数后验分布可视化（不重要，补充信息）
+# 
+# ## HDI 是否包含0
+# RT_hdi <- bayestestR::hdi(var_both_rt_model, ci = 0.95)
+# RT_hdi
+# plot(RT_hdi) + scale_fill_flat()
+# 
+# 
+# ## 回归系数>0或<0的比例
+# RR_PD <- bayestestR::p_direction(var_both_rt_model)
+# RR_PD
+# plot(RR_PD)
+# 
+# # 参数不为0的比例
+# RR_PS <- bayestestR::p_significance(var_both_rt_model)
+# RR_PS
+# x <- plot(RR_PS)
+# # 提取颜色
+# g <- ggplot2::ggplot_build(x)
+# unique(g$data[[1]]$fill)
 ```
 
 
@@ -991,6 +1007,18 @@ acc_m1 <- df.clas.trial %>%
 ```{r}
 # ESS、Rhat
 summary(acc_m1)
+
+# Regression Coefficients:
+#                                        Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept                                  1.31      0.09     1.13     1.49 1.00     4433     7311
+# Identityfriend                            -0.04      0.09    -0.21     0.13 1.00     9226    11234
+# Identitystranger                           0.00      0.06    -0.12     0.13 1.00    14834    12659
+# Priorityfriend_goal                        0.18      0.14    -0.10     0.46 1.00     7310    10185
+# Prioritystranger_goal                      0.28      0.18    -0.06     0.63 1.00     8159     9989
+# Identityfriend:Priorityfriend_goal         0.11      0.13    -0.15     0.36 1.00    11014    11171
+# Identitystranger:Priorityfriend_goal      -0.06      0.10    -0.26     0.14 1.00    16732    12728
+# Identityfriend:Prioritystranger_goal      -0.09      0.15    -0.38     0.20 1.00    10409    12169
+# Identitystranger:Prioritystranger_goal     0.08      0.15    -0.22     0.39 1.00    13484    12913
 ```
 
 ```{r}
@@ -1003,18 +1031,18 @@ trace_plot_acc
 
 ### （3）模型比较
 ```{r}
-# 后验预测
-acc_var_both_ppc <- brms::posterior_predict(
-  object = acc_m1,
-)
-
-# mae
-acc_var_both_mae <- calculate_MAE(acc_var_both_ppc, acc_m1$data, "acc")
+# # 后验预测
+# acc_var_both_ppc <- brms::posterior_predict(
+#   object = acc_m1,
+# )
+# 
+# # mae
+# acc_var_both_mae <- calculate_MAE(acc_var_both_ppc, acc_m1$data, "acc")
 ```
 
 ### （4）后验预测检验
 ```{r}
-bayesplot::pp_check(acc_m1, type = "dens_overlay")
+# bayesplot::pp_check(acc_m1, type = "dens_overlay")
 ```
 
 ### （5）推断统计
@@ -1176,7 +1204,7 @@ vlines_acc <- df_acc_pop %>%
     priority = factor(
       priority,
       levels = c('PSelf', 'PFriend', 'PStranger'),
-      labels = c("自我目标", "朋友目标", "生人目标")
+      labels = c("自我优先", "朋友优先", "生人优先")
     )
   ) %>%
   dplyr::group_by(shape, priority) %>%
@@ -1196,7 +1224,7 @@ p_acc1 <- df_acc_pop %>%
     priority = factor(
       priority,
       levels = c('PSelf', 'PFriend', 'PStranger'),
-      labels = c("自我目标", "朋友目标", "生人目标")
+      labels = c("自我优先", "朋友优先", "生人优先")
     )
   ) %>%
   ggplot2::ggplot(aes(x = value, color = shape)) +
@@ -1215,7 +1243,8 @@ p_acc1 <- df_acc_pop %>%
   ggplot2::labs(x = expression('正确率后验分布'),
                 color = "身份",
                 fill = "身份",
-  )
+  )+
+  papaja::theme_apa()
 
 
 p_acc1
@@ -1236,15 +1265,15 @@ df_acc_pop_diff <- df_acc_pop_diff_wide%>%
     'diff_SF_PF', 'diff_SStr_PF', 'diff_FStr_PF',
     'diff_SF_PStr', 'diff_SStr_PStr', 'diff_FStr_PStr'),
         labels = c(
-      "(ACC[自我] - ACC[朋友])[自我目标]",
-      "(ACC[自我] - ACC[生人])[自我目标]",
-      "(ACC[朋友] - ACC[生人])[自我目标]",
-      "(ACC[自我] - ACC[朋友])[朋友目标]",
-      "(ACC[自我] - ACC[生人])[朋友目标]",
-      "(ACC[朋友] - ACC[生人])[朋友目标]",
-      "(ACC[自我] - ACC[朋友])[生人目标]",
-      "(ACC[自我] - ACC[生人])[生人目标]",
-      "(ACC[朋友] - ACC[生人])[生人目标]"
+      "(ACC[自我] - ACC[朋友])[自我优先]",
+      "(ACC[自我] - ACC[生人])[自我优先]",
+      "(ACC[朋友] - ACC[生人])[自我优先]",
+      "(ACC[自我] - ACC[朋友])[朋友优先]",
+      "(ACC[自我] - ACC[生人])[朋友优先]",
+      "(ACC[朋友] - ACC[生人])[朋友优先]",
+      "(ACC[自我] - ACC[朋友])[生人优先]",
+      "(ACC[自我] - ACC[生人])[生人优先]",
+      "(ACC[朋友] - ACC[生人])[生人优先]"
     )
     ))
 
@@ -1260,14 +1289,19 @@ p_acc1_diff <- df_acc_pop_diff %>%
   ) +
   ggplot2::xlab("各条件正确率差异分布") +
  facet_wrap( ~ term_diff, nrow = 3, 
-              labeller = labeller(term_diff = label_parsed))
+              labeller = labeller(term_diff = label_parsed))+
   ggplot2::theme(
     axis.text.x = ggplot2::element_text(
-      angle = 45,  # 横坐标文字旋转45度
-      hjust = 1,   # 文字右对齐，贴合坐标轴
-      vjust = 1,   # 垂直对齐
-      size = 10     # 适度缩小字体
-    ))
+      angle = 45,
+      hjust = 1,
+      vjust = 1,
+      size = 10
+    ),
+    axis.text.y = ggplot2::element_text(size = 10),
+    strip.text = ggplot2::element_text(size = 8),
+    legend.title = ggplot2::element_text(size = 10),
+    legend.text = ggplot2::element_text(size = 10),
+  )
 
 p_acc1_diff
 
