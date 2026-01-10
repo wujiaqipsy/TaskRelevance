@@ -160,6 +160,82 @@ df
 
 ```
 
+## 3、数据收集过程代码
+
+```{r}
+# 试次数&准确率检查
+df.check <- df %>% 
+  dplyr::group_by(subj_idx) %>%
+  # dplyr::group_by(subj_idx, TaskRelevance, Identity, ismatch) %>%
+  dplyr::summarise(
+    N = length(acc), 
+    N_crrct = sum(acc),
+    ACC = sum(acc)/length(acc),
+    .groups = 'drop'
+    ) 
+
+df.check
+```
+
+```{r}
+# 被试疲劳/练习效应检查
+# 会存在练习效应，中后段会出现疲劳效应，需要提醒被试注意休息，以及要求又快又准，我们同时追求速度和准确性！！
+df.fatigue <- df %>%
+  dplyr::group_by(subj_idx, TaskRelevance) %>%
+  dplyr::mutate(trial_index = row_number(),
+         phrase = case_when(
+           trial_index <= round(n() / 3) ~ "前期",
+           trial_index >  round(n() / 3) & trial_index <= round(2 * n() / 3) ~ "中期",
+           TRUE ~"后期"),
+         phrase = factor(phrase, levels = c("前期", "中期", "后期"))
+         ) %>%
+  dplyr::group_by(subj_idx, TaskRelevance, phrase) %>%
+  dplyr::summarise(
+    mean_rt = mean(rt, na.rm = TRUE),
+    sd_rt = sd(rt, na.rm = TRUE),
+    n_trials = n()
+  ) 
+
+df.fatigue
+```
+
+```{r}
+df.norm <- df %>%
+  dplyr::filter(subj_idx == 10) %>%
+  dplyr::mutate(
+    Identity = factor(Identity, levels = c("self", "friend", "stranger")),
+    ismatch = case_when(ismatch == 1 ~ "match", ismatch == 0 ~ "mismatch", )
+  ) %>%
+  dplyr::group_by(subj_idx, TaskRelevance, Identity, ismatch) %>%
+  tidyr::drop_na(rt) %>%
+  dplyr::summarise(
+    rt.mean = mean(rt, na.rm = TRUE),
+    rt.sd = sd(rt, na.rm = TRUE),
+    density = dnorm(x = rt, mean = rt.mean, sd = rt.sd),
+    rt = rt,
+  )
+df.norm
+
+
+p_rt_subj <- ggplot2::ggplot(df.norm, aes(x = rt, y = density, color = Identity)) +
+  ggplot2::geom_line() +
+  ggplot2::geom_point() +
+  ggplot2::theme_minimal() +
+  ggplot2::facet_wrap(~ subj_idx + TaskRelevance + ismatch, ncol = 4) +
+  ggplot2::theme(
+    legend.position = "right",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA)
+  ) +
+  ggplot2::labs(title = "Reaction time distribution of each subject", x = "Reaction time (ms)", y = "Density")
+
+p_rt_subj
+
+```
+
+
+数据清洗
 ```{r}
 # 正确率低于0.7的被试
 df.excld.sub <-  df %>%
@@ -189,7 +265,7 @@ df.v
 ```
 
 
-## 3、JASP数据格式
+## 4、JASP数据格式
 ```{r}
 # # JASP 贝叶斯重复测量方差分析数据框
 # df.v.jasp <- df.v%>%
@@ -282,7 +358,7 @@ df.v
 ```
 
 
-## 4、被试人口学信息统计
+## 5、被试人口学信息统计
 ```{r}
 # 基于有效被试的人口学信息统计
 df.basic <- df.v %>%
@@ -389,7 +465,7 @@ plot_rt_m <- plot_cond_rt_m +
   ggplot2::scale_color_discrete(name = "身份")
 
 plot_rt_m
-ggplot2::ggsave(file.path(figDir, "RT_observed_data.png"))
+# ggplot2::ggsave(file.path(figDir, "RT_observed_data.png"))
 
 
 ```
@@ -466,31 +542,31 @@ plot_acc <- plot_cond_acc +
   ggplot2::scale_color_discrete(name = "身份")
 
 plot_acc
-ggplot2::ggsave(file.path(figDir, "ACC_observed_data.png"))
+# ggplot2::ggsave(file.path(figDir, "ACC_observed_data.png"))
 
 ```
 
 # 样本量计算：贝叶斯因子序列分析
 ```{r}
-# 关注自我与任务无关时：Identity*ismatch的交互效应：>10或者<1/10
-# 自我与任务有关数据
-df.tr.subj <- df.subj.rt_m %>%
-  dplyr::filter(TaskRelevance == "TaskRelevant") %>%
-  dplyr::mutate(Identity = factor(Identity, levels = c("self", "friend", "stranger")),
-                ismatch = factor(ismatch, levels = c("1", "0"))                )
-
-BF_tr_rt <- BayesFactor::anovaBF(RT_m ~ Identity * ismatch, df.tr.subj, progress = FALSE)
-bayestestR::bayesfactor_inclusion(BF_tr_rt, match_models = TRUE)
-
-
-# 自我与任务无关数据
-df.tir.subj <- df.subj.rt_m %>%
-  dplyr::filter(TaskRelevance == "TaskIrrelevant") %>%
-  dplyr::mutate(Identity = factor(Identity, levels = c("self", "friend", "stranger")),
-                ismatch = factor(ismatch, levels = c("1", "0")))
-
-BF_tir_rt <- BayesFactor::anovaBF(RT_m ~ Identity * ismatch, df.tir.subj, progress = FALSE)
-bayestestR::bayesfactor_inclusion(BF_tir_rt, match_models = TRUE)
+# # 关注自我与任务无关时：Identity*ismatch的交互效应：>10或者<1/10
+# # 自我与任务有关数据
+# df.tr.subj <- df.subj.rt_m %>%
+#   dplyr::filter(TaskRelevance == "TaskRelevant") %>%
+#   dplyr::mutate(Identity = factor(Identity, levels = c("self", "friend", "stranger")),
+#                 ismatch = factor(ismatch, levels = c("1", "0"))                )
+# 
+# BF_tr_rt <- BayesFactor::anovaBF(RT_m ~ Identity * ismatch, df.tr.subj, progress = FALSE)
+# bayestestR::bayesfactor_inclusion(BF_tr_rt, match_models = TRUE)
+# 
+# 
+# # 自我与任务无关数据
+# df.tir.subj <- df.subj.rt_m %>%
+#   dplyr::filter(TaskRelevance == "TaskIrrelevant") %>%
+#   dplyr::mutate(Identity = factor(Identity, levels = c("self", "friend", "stranger")),
+#                 ismatch = factor(ismatch, levels = c("1", "0")))
+# 
+# BF_tir_rt <- BayesFactor::anovaBF(RT_m ~ Identity * ismatch, df.tir.subj, progress = FALSE)
+# bayestestR::bayesfactor_inclusion(BF_tir_rt, match_models = TRUE)
 ```
 
 # Bootstrap
@@ -696,7 +772,7 @@ summary(var_both_tr_rt_model)
 ### （2）模型评估
 ```{r}
 # ESS、Rhat
-summary(var_both_tr_rt_model)
+# summary(var_both_tr_rt_model)
 
 # Regression Coefficients:
 #                          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
@@ -751,13 +827,13 @@ trace_plot <- bayesplot::mcmc_trace(
     legend.text = ggplot2::element_text(size = 10),   # 图例文字
   )
 trace_plot
-ggsave(file.path(figDir, "trace_plot.png"))
+# ggsave(file.path(figDir, "trace_plot.png"))
 ```
 
 ```{r}
 # 概率密度曲线
-p_sample <- bayestestR::estimate_density(var_both_tr_rt_model)
-plot(p_sample)
+# p_sample <- bayestestR::estimate_density(var_both_tr_rt_model)
+# plot(p_sample)
 # ggsave(file.path(figDir, "parameters_distribution.png"))
 
 # 同时绘制采样分布与轨迹图
@@ -790,26 +866,26 @@ calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
   return(MAE_value)
 }
 
-# 后验预测
-rt_var_both_ppc <- posterior_predict(
-  object = var_both_tr_rt_model,
-)
-
-rt_var_both_mae <- calculate_MAE(rt_var_both_ppc, var_both_tr_rt_model$data, "rt_sec")
+# # 后验预测
+# rt_var_both_ppc <- posterior_predict(
+#   object = var_both_tr_rt_model,
+# )
+# 
+# rt_var_both_mae <- calculate_MAE(rt_var_both_ppc, var_both_tr_rt_model$data, "rt_sec")
 #  0.08841838
 ```
 
 ```{r}
 # loo
-loo <- loo::loo(var_both_tr_rt_model)
+# loo <- loo::loo(var_both_tr_rt_model)
 ```
 
 
 ### （4）后验预测检验
 ```{r}
-# performance::check_predictions(RT_m1, check_range = TRUE)
-bayesplot::pp_check(var_both_tr_rt_model, type = "dens_overlay", ndraws = 1000)
-# ggsave(file.path(figDir, "modle_estimation.png"))
+# # performance::check_predictions(RT_m1, check_range = TRUE)
+# bayesplot::pp_check(var_both_tr_rt_model, type = "dens_overlay", ndraws = 1000)
+# # ggsave(file.path(figDir, "modle_estimation.png"))
 ```
 
 
@@ -896,31 +972,31 @@ summary(df_tr_rt_fixed)
 # 各条件中位数及可信区间
 
 ## 匹配条件
-med_tr_rt_Self_Match<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
-ll_tr_rt_Self_Match<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
-ul_tr_rt_Self_Match<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
+med_tr_rt_Self_Match<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
+ll_tr_rt_Self_Match<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
+ul_tr_rt_Self_Match<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
 
-med_tr_rt_Friend_Match<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
-ll_tr_rt_Friend_Match<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
-ul_tr_rt_Friend_Match<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
+med_tr_rt_Friend_Match<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
+ll_tr_rt_Friend_Match<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
+ul_tr_rt_Friend_Match<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
 
-med_tr_rt_Stranger_Match<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
-ll_tr_rt_Stranger_Match<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
-ul_tr_rt_Stranger_Match<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'Match'], digits = 0)
+med_tr_rt_Stranger_Match<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
+ll_tr_rt_Stranger_Match<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
+ul_tr_rt_Stranger_Match<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'Match'], digits = 2)
 
 
 ## 不匹配条件
-med_tr_rt_Self_NonMatch<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ll_tr_rt_Self_NonMatch<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ul_tr_rt_Self_NonMatch<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
+med_tr_rt_Self_NonMatch<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ll_tr_rt_Self_NonMatch<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ul_tr_rt_Self_NonMatch<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
 
-med_tr_rt_Friend_NonMatch<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ll_tr_rt_Friend_NonMatch<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ul_tr_rt_Friend_NonMatch<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
+med_tr_rt_Friend_NonMatch<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ll_tr_rt_Friend_NonMatch<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ul_tr_rt_Friend_NonMatch<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Friend' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
 
-med_tr_rt_Stranger_NonMatch<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ll_tr_rt_Stranger_NonMatch<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ul_tr_rt_Stranger_NonMatch<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 0)
+med_tr_rt_Stranger_NonMatch<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ll_tr_rt_Stranger_NonMatch<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ul_tr_rt_Stranger_NonMatch<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$ismatch == 'NonMatch'], digits = 2)
 
 ```
 
@@ -933,7 +1009,7 @@ bayestestR::sexit(df_tr_rt_pop_diff_wide[,c(4:9)])
 ### （6）结果可视化
 ```{r}
 # 固定效应，后验分布均值图
-plot(brms::conditional_effects(var_both_tr_rt_model),plot = FALSE)[3]
+# plot(brms::conditional_effects(var_both_tr_rt_model),plot = FALSE)[3]
 ```
 
 
@@ -971,7 +1047,7 @@ p_tr_rt <- df_tr_rt_pop %>%
 # theme_apa()
 p_tr_rt
 
-ggsave(file.path(figDir, "Tr_RT.png"))
+# ggsave(file.path(figDir, "Tr_RT.png"))
 ```
 
 ```{r}
@@ -1018,33 +1094,33 @@ p_tr_rt_diff <- df_tr_rt_pop_diff %>%
 p_tr_rt_diff
 
 
-ggsave(file.path(figDir, "Tr_RT_diff.png"))
+# ggsave(file.path(figDir, "Tr_RT_diff.png"))
 
 
 ```
 
 
 ```{r}
-# 回归系数后验分布可视化（不重要，补充信息）
-
-## HDI 是否包含0
-RT_hdi <- bayestestR::hdi(var_both_tr_rt_model, ci = 0.95)
-RT_hdi
-plot(RT_hdi) + scale_fill_flat()
-
-
-## 回归系数>0或<0的比例
-RR_PD <- bayestestR::p_direction(var_both_tr_rt_model)
-RR_PD
-plot(RR_PD)
-
-# 参数不为0的比例
-RR_PS <- bayestestR::p_significance(var_both_tr_rt_model)
-RR_PS
-x <- plot(RR_PS)
-# 提取颜色
-g <- ggplot2::ggplot_build(x)
-unique(g$data[[1]]$fill)
+# # 回归系数后验分布可视化（不重要，补充信息）
+# 
+# ## HDI 是否包含0
+# RT_hdi <- bayestestR::hdi(var_both_tr_rt_model, ci = 0.95)
+# RT_hdi
+# plot(RT_hdi) + scale_fill_flat()
+# 
+# 
+# ## 回归系数>0或<0的比例
+# RR_PD <- bayestestR::p_direction(var_both_tr_rt_model)
+# RR_PD
+# plot(RR_PD)
+# 
+# # 参数不为0的比例
+# RR_PS <- bayestestR::p_significance(var_both_tr_rt_model)
+# RR_PS
+# x <- plot(RR_PS)
+# # 提取颜色
+# g <- ggplot2::ggplot_build(x)
+# unique(g$data[[1]]$fill)
 ```
 
 ## 2、任务有关ACC：信号检测论
@@ -1077,7 +1153,7 @@ summary(var_both_tr_sdt_model)
 ### （2）模型评估
 ```{r}
 # ESS、Rhat
-summary(var_both_tr_sdt_model)
+# summary(var_both_tr_sdt_model)
 
 # Regression Coefficients:
 #                      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
@@ -1111,14 +1187,14 @@ trace_plot
 
 ```{r}
 # 概率密度曲线
-p_sample <- bayestestR::estimate_density(var_both_tr_sdt_model)
-plot(p_sample)
-# ggsave(file.path(figDir, "parameters_distribution.png"))
-
-# 同时绘制采样分布与轨迹图
-# p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
-# p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
-# p_dens + p_trace
+# p_sample <- bayestestR::estimate_density(var_both_tr_sdt_model)
+# plot(p_sample)
+# # ggsave(file.path(figDir, "parameters_distribution.png"))
+# 
+# # 同时绘制采样分布与轨迹图
+# # p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
+# # p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
+# # p_dens + p_trace
 ```
 
 
@@ -1145,12 +1221,12 @@ calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
   return(MAE_value)
 }
 
-# 后验预测
-tr_sdt_var_both_ppc <- posterior_predict(
-  object = var_both_tr_sdt_model,
-)
-
-tr_sdt_var_both_mae <- calculate_MAE(tr_sdt_var_both_ppc, var_both_tr_sdt_model$data, "saymatch")
+# # 后验预测
+# tr_sdt_var_both_ppc <- posterior_predict(
+#   object = var_both_tr_sdt_model,
+# )
+# 
+# tr_sdt_var_both_mae <- calculate_MAE(tr_sdt_var_both_ppc, var_both_tr_sdt_model$data, "saymatch")
 
 # 0.11731
 
@@ -1158,7 +1234,7 @@ tr_sdt_var_both_mae <- calculate_MAE(tr_sdt_var_both_ppc, var_both_tr_sdt_model$
 
 ```{r}
 # loo
-loo <- loo::loo(var_both_tr_sdt_model)
+# loo <- loo::loo(var_both_tr_sdt_model)
 ```
 
 
@@ -1234,17 +1310,17 @@ df_tr_sdt_fixed
 ```{r}
 # 各条件中位数及可信区间
 
-med_tr_sdt_Self<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
-ll_tr_sdt_Self<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
-ul_tr_sdt_Self<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+med_tr_sdt_Self<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
+ll_tr_sdt_Self<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
+ul_tr_sdt_Self<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
 
-med_tr_sdt_Friend<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Friend' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
-ll_tr_sdt_Friend<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Friend' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
-ul_tr_sdt_Friend<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Friend' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+med_tr_sdt_Friend<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Friend' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
+ll_tr_sdt_Friend<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Friend' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
+ul_tr_sdt_Friend<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Friend' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
 
-med_tr_sdt_Stranger<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
-ll_tr_sdt_Stranger<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
-ul_tr_sdt_Stranger<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+med_tr_sdt_Stranger<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
+ll_tr_sdt_Stranger<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
+ul_tr_sdt_Stranger<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$params == 'dprime'], digits = 2)
 
 
 ```
@@ -1258,7 +1334,7 @@ bayestestR::sexit(df_tr_sdt_pop_diff_wide[,c(7:9)])
 ### （6）结果可视化
 ```{r}
 # 固定效应，后验分布均值图
-plot(brms::conditional_effects(var_both_tr_sdt_model),plot = FALSE)[2]
+# plot(brms::conditional_effects(var_both_tr_sdt_model),plot = FALSE)[2]
 ```
 
 
@@ -1294,7 +1370,7 @@ p_sdt_rt <- df_tr_sdt_pop %>%
 # theme_apa()
 
 p_sdt_rt
-ggsave(file.path(figDir, "Tr_dprime.png"))
+# ggsave(file.path(figDir, "Tr_dprime.png"))
 ```
 
 ```{r}
@@ -1339,7 +1415,7 @@ p_tr_sdt_diff <- df_tr_sdt_pop_diff %>%
 p_tr_sdt_diff
 
 
-ggsave(file.path(figDir, "Tr_dprime_diff.png"))
+# ggsave(file.path(figDir, "Tr_dprime_diff.png"))
 
 ```
 
@@ -1445,15 +1521,15 @@ trace_plot
 ```
 
 ```{r}
-# 概率密度曲线
-p_sample <- bayestestR::estimate_density(var_both_tir_rt_model)
-plot(p_sample)
-# ggsave(file.path(figDir, "parameters_distribution.png"))
-
-# 同时绘制采样分布与轨迹图
-# p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
-# p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
-# p_dens + p_trace
+# # 概率密度曲线
+# p_sample <- bayestestR::estimate_density(var_both_tir_rt_model)
+# plot(p_sample)
+# # ggsave(file.path(figDir, "parameters_distribution.png"))
+# 
+# # 同时绘制采样分布与轨迹图
+# # p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
+# # p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
+# # p_dens + p_trace
 ```
 
 
@@ -1480,26 +1556,26 @@ calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
   return(MAE_value)
 }
 
-# 后验预测
-rt_var_both_ppc <- posterior_predict(
-  object = var_both_tir_rt_model,
-)
-
-rt_var_both_mae <- calculate_MAE(rt_var_both_ppc, var_both_tir_rt_model$data, "rt_sec")
+# # 后验预测
+# rt_var_both_ppc <- posterior_predict(
+#   object = var_both_tir_rt_model,
+# )
+# 
+# rt_var_both_mae <- calculate_MAE(rt_var_both_ppc, var_both_tir_rt_model$data, "rt_sec")
 
 ```
 
 ```{r}
 # loo
-loo <- loo::loo(var_both_tir_rt_model)
+# loo <- loo::loo(var_both_tir_rt_model)
 ```
 
 
 ### （4）后验预测检验
 ```{r}
-# performance::check_predictions(RT_m1, check_range = TRUE)
-bayesplot::pp_check(var_both_tir_rt_model, type = "dens_overlay", ndraws = 1000)
-# ggsave(file.path(figDir, "modle_estimation.png"))
+# # performance::check_predictions(RT_m1, check_range = TRUE)
+# bayesplot::pp_check(var_both_tir_rt_model, type = "dens_overlay", ndraws = 1000)
+# # ggsave(file.path(figDir, "modle_estimation.png"))
 ```
 
 
@@ -1585,31 +1661,31 @@ df_tir_rt_fixed <- df_tir_rt_pop%>%
 # 各条件中位数及可信区间
 
 ## 匹配条件
-med_tir_rt_Self_Match<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
-ll_tir_rt_Self_Match<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
-ul_tir_rt_Self_Match<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
+med_tir_rt_Self_Match<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
+ll_tir_rt_Self_Match<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
+ul_tir_rt_Self_Match<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
 
-med_tir_rt_Friend_Match<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
-ll_tir_rt_Friend_Match<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
-ul_tir_rt_Friend_Match<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
+med_tir_rt_Friend_Match<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
+ll_tir_rt_Friend_Match<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
+ul_tir_rt_Friend_Match<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
 
-med_tir_rt_Stranger_Match<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
-ll_tir_rt_Stranger_Match<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
-ul_tir_rt_Stranger_Match<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'Match'], digits = 0)
+med_tir_rt_Stranger_Match<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
+ll_tir_rt_Stranger_Match<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
+ul_tir_rt_Stranger_Match<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'Match'], digits = 2)
 
 
 ## 不匹配条件
-med_tir_rt_Self_NonMatch<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ll_tir_rt_Self_NonMatch<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ul_tir_rt_Self_NonMatch<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
+med_tir_rt_Self_NonMatch<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ll_tir_rt_Self_NonMatch<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ul_tir_rt_Self_NonMatch<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
 
-med_tir_rt_Friend_NonMatch<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ll_tir_rt_Friend_NonMatch<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ul_tir_rt_Friend_NonMatch<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
+med_tir_rt_Friend_NonMatch<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ll_tir_rt_Friend_NonMatch<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ul_tir_rt_Friend_NonMatch<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Friend' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
 
-med_tir_rt_Stranger_NonMatch<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ll_tir_rt_Stranger_NonMatch<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
-ul_tir_rt_Stranger_NonMatch<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 0)
+med_tir_rt_Stranger_NonMatch<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ll_tir_rt_Stranger_NonMatch<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
+ul_tir_rt_Stranger_NonMatch<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$ismatch == 'NonMatch'], digits = 2)
 
 ```
 
@@ -1622,7 +1698,7 @@ bayestestR::sexit(df_tir_rt_pop_diff_wide[,c(4:9)])
 ### （6）结果可视化
 ```{r}
 # 固定效应，后验分布均值图
-plot(conditional_effects(var_both_tir_rt_model),plot = FALSE)[3]
+# plot(conditional_effects(var_both_tir_rt_model),plot = FALSE)[3]
 ```
 
 
@@ -1656,7 +1732,7 @@ p_tir_rt <- df_tir_rt_pop %>%
                 )
 # theme_apa()
 p_tir_rt
-ggsave(file.path(figDir, "Tir_RT.png"))
+# ggsave(file.path(figDir, "Tir_RT.png"))
 ```
 
 ```{r}
@@ -1702,7 +1778,7 @@ p_tir_rt_diff <- df_tir_rt_pop_diff %>%
 
 p_tir_rt_diff
 
-ggsave(file.path(figDir, "Tir_RT_diff.png"))
+# ggsave(file.path(figDir, "Tir_RT_diff.png"))
 
 ```
 
@@ -1735,7 +1811,7 @@ summary(var_both_tir_sdt_model)
 ### （2）模型评估
 ```{r}
 # ESS、Rhat
-summary(var_both_tir_sdt_model)
+# summary(var_both_tir_sdt_model)
 
 # Regression Coefficients:
 #                      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
@@ -1767,15 +1843,15 @@ trace_plot
 ```
 
 ```{r}
-# 概率密度曲线
-p_sample <- bayestestR::estimate_density(var_both_tir_sdt_model)
-plot(p_sample)
-# ggsave(file.path(figDir, "parameters_distribution.png"))
-
-# 同时绘制采样分布与轨迹图
-# p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
-# p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
-# p_dens + p_trace
+# # 概率密度曲线
+# p_sample <- bayestestR::estimate_density(var_both_tir_sdt_model)
+# plot(p_sample)
+# # ggsave(file.path(figDir, "parameters_distribution.png"))
+# 
+# # 同时绘制采样分布与轨迹图
+# # p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
+# # p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
+# # p_dens + p_trace
 ```
 
 
@@ -1802,26 +1878,26 @@ calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
   return(MAE_value)
 }
 
-# 后验预测
-tir_sdt_var_both_ppc <- posterior_predict(
-  object = var_both_tir_sdt_model,
-)
-
-tir_sdt_var_both_mae <- calculate_MAE(tir_sdt_var_both_ppc, var_both_tir_sdt_model$data, "saymatch")
+# # 后验预测
+# tir_sdt_var_both_ppc <- posterior_predict(
+#   object = var_both_tir_sdt_model,
+# )
+# 
+# tir_sdt_var_both_mae <- calculate_MAE(tir_sdt_var_both_ppc, var_both_tir_sdt_model$data, "saymatch")
 
 ```
 
 ```{r}
 # loo
-loo <- loo::loo(var_both_tir_sdt_model)
+# loo <- loo::loo(var_both_tir_sdt_model)
 ```
 
 
 ### （4）后验预测检验
 ```{r}
-# performance::check_predictions(RT_m1, check_range = TRUE)
-bayesplot::pp_check(var_both_tir_sdt_model, type = "dens_overlay", ndraws = 1000)
-# ggsave(file.path(figDir, "modle_estimation.png"))
+# # performance::check_predictions(RT_m1, check_range = TRUE)
+# bayesplot::pp_check(var_both_tir_sdt_model, type = "dens_overlay", ndraws = 1000)
+# # ggsave(file.path(figDir, "modle_estimation.png"))
 ```
 
 
@@ -1888,17 +1964,17 @@ df_tir_sdt_fixed <- df_tir_sdt_pop%>%
 ```{r}
 # 各条件中位数及可信区间
 
-med_tir_sdt_Self<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$Identity == 'Self' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
-ll_tir_sdt_Self<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$Identity == 'Self' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
-ul_tir_sdt_Self<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$Identity == 'Self' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+med_tir_sdt_Self<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$Identity == 'Self' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
+ll_tir_sdt_Self<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$Identity == 'Self' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
+ul_tir_sdt_Self<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$Identity == 'Self' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
 
-med_tir_sdt_Friend<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$Identity == 'Friend' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
-ll_tir_sdt_Friend<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$Identity == 'Friend' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
-ul_tir_sdt_Friend<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$Identity == 'Friend' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+med_tir_sdt_Friend<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$Identity == 'Friend' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
+ll_tir_sdt_Friend<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$Identity == 'Friend' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
+ul_tir_sdt_Friend<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$Identity == 'Friend' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
 
-med_tir_sdt_Stranger<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$Identity == 'Stranger' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
-ll_tir_sdt_Stranger<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$Identity == 'Stranger' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
-ul_tir_sdt_Stranger<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$Identity == 'Stranger' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+med_tir_sdt_Stranger<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$Identity == 'Stranger' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
+ll_tir_sdt_Stranger<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$Identity == 'Stranger' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
+ul_tir_sdt_Stranger<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$Identity == 'Stranger' & df_tir_sdt_fixed$params == 'dprime'], digits = 2)
 
 
 ```
@@ -1912,7 +1988,7 @@ bayestestR::sexit(df_tir_sdt_pop_diff_wide[,c(7:9)])
 ### （6）结果可视化
 ```{r}
 # 固定效应，后验分布均值图
-plot(conditional_effects(var_both_tir_sdt_model),plot = FALSE)[2]
+# plot(conditional_effects(var_both_tir_sdt_model),plot = FALSE)[2]
 ```
 
 
@@ -1949,7 +2025,7 @@ p_sdt <- df_tir_sdt_pop %>%
 # theme_apa()
 
 p_sdt
-ggsave(file.path(figDir, "Tir_dprime.png"))
+# ggsave(file.path(figDir, "Tir_dprime.png"))
 ```
 
 ```{r}
@@ -1993,8 +2069,60 @@ p_tir_sdt_diff <- df_tir_sdt_pop_diff %>%
 
 p_tir_sdt_diff
 
-ggsave(file.path(figDir, "Tir_dprime_diff.png"))
+# ggsave(file.path(figDir, "Tir_dprime_diff.png"))
 
 ```
+
+## 5、差异的差异计算与推断统计
+```{r}
+
+# 1. 给df_tr添加标识+取4-9列
+df_tr_sub <- df_tr_rt_pop_diff_wide %>%
+  dplyr::select(4:9) %>%  # 提取4-9列
+  dplyr::mutate(TaskRelevance = "TR")  # 标注为TR
+
+# 2. 给df_tir添加标识+取4-9列
+df_tir_sub <- df_tir_rt_pop_diff_wide %>%
+  dplyr::select(4:9) %>%  # 提取4-9列
+  dplyr::mutate(TaskRelevance = "TIR")  # 标注为TIR
+
+# 3. 合并两个子数据框
+combined_df <- dplyr::bind_rows(df_tr_sub, df_tir_sub)
+
+# 4. 计算匹配条件下差异的差异
+df_diff_diff <- combined_df %>%
+  tidyr::pivot_longer(
+    cols = -c(TaskRelevance),
+    names_to = "diff",  
+    values_to = "RT" 
+  )%>%
+  tidyr::unite(
+    col = "condition",
+    TaskRelevance, diff, 
+    sep = "_"
+  )%>%
+  dplyr::group_by(condition) %>%
+  dplyr::mutate(obs_id = row_number()) %>%
+  dplyr::ungroup() %>%
+  tidyr::pivot_wider(
+    names_from = condition,  
+    values_from = RT      
+  )%>%
+  dplyr::mutate(
+    diff_dfff_SF = TR_diff_SF_Match - TIR_diff_SF_Match,
+    diff_dfff_SStr = TR_diff_SStr_Match - TIR_diff_SStr_Match,
+    diff_dfff_FStr = TR_diff_FStr_Match - TIR_diff_FStr_Match
+  ) %>%
+  dplyr::select(diff_dfff_SF, diff_dfff_SStr, diff_dfff_FStr)   
+
+
+df_diff_diff
+```
+
+```{r}
+bayestestR::sexit(df_diff_diff)
+```
+
+
 
 
