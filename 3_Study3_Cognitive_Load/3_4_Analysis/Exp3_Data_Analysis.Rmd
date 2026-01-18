@@ -1,0 +1,1845 @@
+---
+title: "DataAnalysis"
+author: "wujiaqi"
+date: "2025-04-25"
+output: html_document
+---
+
+# 配置环境与R包
+```{r}
+###################### 配置环境与R包 ######################
+
+# 配置环境
+if (.Platform$OS.type == 'windows') {
+        Sys.setlocale(category = 'LC_ALL','en_US.UTF-8')   # 使用UTF-8编码
+} 
+
+# setwd("C:/1_Postgraduate/TaskRelevance/3_Study3_Cognitive_Load/3_4_Analysis")   # 设置工作目录
+
+set.seed(42)   # 随机种子，确保结果可复现
+
+rm(list = ls())   # 清除当前工作环境中所有对象（变量、函数等）
+
+curDir = getwd()   # 获取当前工作路径
+
+figDir = file.path(curDir, 'figures')   # 设置图片存储地址
+
+# 安装cmdstanr作为后端
+if (!require(cmdstanr)){
+        install.packages("cmdstanr", repos = c('https://stan-dev.r-universe.dev', getOption("repos")))
+        library(cmdstanr)
+}
+set_cmdstan_path('C:/softwares/cmdstan-2.36.0')
+
+
+
+# 配置R包
+if (!require(pacman)){
+        install.packages("pacman")
+        library(pacman)
+}
+
+## 使用pacman管理R包
+pacman::p_load(
+  'knitr',
+  'here',         # 选择路径
+  'tidyverse',    # 数据处理
+  'ggplot2',      # 数据可视化
+  'brms',         # 贝叶斯统计
+  'bayesplot',    # 贝叶斯绘图
+  'tidybayes',    # 贝叶斯统计
+  'ggridges',     # 绘制山脊图
+  'patchwork',    # 将多个图拼接在一起
+  "papaja",       # 生成符合APA格式的文档
+  'cmdstanr',
+  'see',   # 后验推断结果可视化
+  'bayestestR', 
+  'parameters',
+  'performance',
+  'BayesFactor',   # 计算BF
+  'report'   # 结果报告
+               )
+
+theme_set(theme_modern())
+
+```
+
+# 数据准备
+## 1、读取数据
+```{r warning=FALSE}
+###################### 数据准备 ######################
+
+df_raw <- list.files(file.path("../3_3_RawData"), pattern = "exp3_.*\\.csv$") %>%
+  # 对读取到的所有.out文件x都执行函数read.table
+  lapply(function(x)
+    read.csv(file.path("../3_3_RawData", x), header = TRUE)) %>%
+  # 读取被试人口学信息
+  lapply(
+    function(df)
+      mutate(
+        df,
+        gender = jsonlite::fromJSON(response[5]),
+        year = jsonlite::fromJSON(response[6])$Q0,
+        education = jsonlite::fromJSON(response[7])$Q0,
+        dist = view_dist_mm[9],
+        rt = as.numeric(rt),
+        success = as.character(success),
+        timeout = as.character(timeout),
+        correct = as.character(correct),
+        ismatch = as.character(ismatch),
+        correct = gsub("TRUE", "true", correct),
+      )
+  ) %>%
+  bind_rows()
+
+```
+
+## 2、数据清洗
+```{r}
+###################### 数据清洗 ######################
+
+df <- df_raw %>%
+  # 选择正式实验试次
+  dplyr::filter(trial_type == "psychophysics") %>%
+  dplyr::filter(phase == "main") %>%
+  select(
+    subj_idx,
+    gender,   # 男0女1
+    year,
+    TaskRelevance,
+    CognitiveLoad,
+    ismatch,
+    Identity,
+    nBack_shape,
+    nBack_color,
+    nBack_label,
+    display_label,
+    response,
+    correct,
+    rt,
+  ) %>%   
+  mutate(
+    year = as.numeric(year),
+    # year = 2025 - year,
+    acc = ifelse(correct == "true", 1, 0),
+    ismatch = ifelse(ismatch == "true", 1, 0),
+    CognitiveLoad = ifelse(CognitiveLoad == "1", "Low", "High"),
+    rt = as.numeric(rt),
+  ) %>%
+ # 再次剔除无关变量
+  select(-correct)
+
+head(df)
+  
+df
+
+# length(unique(df$subj_idx))   # 查看被试总数
+# summary(df)
+
+```
+
+## 3、收数据过程代码
+```{r}
+# 试次数&准确率检查
+df.check <- df %>% 
+  # dplyr::group_by(subj_idx)%>%
+  # dplyr::group_by(subj_idx, CognitiveLoad, TaskRelevance)%>%
+  dplyr::group_by(subj_idx, TaskRelevance, CognitiveLoad, Identity, ismatch) %>%
+  dplyr::summarise(N = length(acc),      
+                         N_crrct = sum(acc),
+                         ACC = sum(acc)/length(acc),
+                         .groups = 'drop')
+
+df.check
+
+```
+
+```{r}
+# 被试疲劳/练习效应检查
+# 会存在练习效应，中后段会出现疲劳效应，需要提醒被试注意休息，以及要求又快又准，我们同时追求速度和准确性！！
+df.fatigue <- df %>%
+  dplyr::group_by(TaskRelevance, CognitiveLoad) %>%
+  dplyr::mutate(trial_index = row_number(),
+         phrase = case_when(
+           trial_index <= round(n() / 3) ~ "前期",
+           trial_index >  round(n() / 3) & trial_index <= round(2 * n() / 3) ~ "中期",
+           TRUE ~"后期"),
+         phrase = factor(phrase, levels = c("前期", "中期", "后期"))
+         ) %>%
+  dplyr::group_by(TaskRelevance, CognitiveLoad, phrase) %>%
+  dplyr::summarise(
+    mean_rt = mean(rt, na.rm = TRUE),
+    sd_rt = sd(rt, na.rm = TRUE),
+    n_trials = n()
+  ) 
+
+df.fatigue
+```
+
+```{r}
+# 被试分类任务的反应时间分布
+df.norm <- df %>% 
+  filter(subj_idx == 20)%>%
+  filter(ismatch == 1)%>%
+  dplyr::group_by(subj_idx, TaskRelevance, CognitiveLoad, Identity) %>%
+  tidyr::drop_na(rt) %>%
+  dplyr::summarise(
+    rt.mean = mean(rt, na.rm = TRUE),
+    rt.sd = sd(rt, na.rm = TRUE),
+    density = dnorm(x=rt, mean=rt.mean, sd=rt.sd),
+    rt=rt,
+    ) 
+df.norm
+
+ggplot2::ggplot(df.norm, aes(x=rt, y=density, color=Identity)) +
+  ggplot2::geom_line() +
+  ggplot2::geom_point() +
+  ggplot2::theme_minimal() +
+  ggplot2::facet_wrap(~subj_idx+TaskRelevance+CognitiveLoad, ncol = 4) +
+  ggplot2::theme(
+    legend.position = "right",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA)
+    ) +
+  ggplot2::labs(title = "Reaction time distribution of each subject",
+       x = "Reaction time (ms)",
+       y = "Density")
+```
+
+数据清洗
+```{r}
+# 正确率低于0.7的被试
+df.excld.sub <-  df %>%
+        dplyr::group_by(subj_idx) %>%
+        dplyr::summarise(N = length(acc),                   
+                         N_crrct = sum(acc),
+                         ACC = sum(acc)/length(acc)) %>%
+        dplyr::filter(ACC < 0.7) %>%                        
+        dplyr::select(subj_idx)
+
+# 有效数据框
+df.v <- df %>%
+  dplyr::filter(!(subj_idx %in% df.excld.sub$subj_idx))%>%
+  dplyr::filter(rt >= 200 & rt<=1500)
+  
+
+# 计算无效试次占比
+df.invalid_trial_rate <- df %>%
+        dplyr::filter(!(subj_idx %in% df.excld.sub$subj_idx)) %>%   # 选出正确率高于0.7的被试
+        dplyr::summarize(rate = length(rt[!(rt >= 200 & rt<=1500)])/length(rt))  # 排除rt不在200-1500ms的试次 
+
+df.v
+# summary(df.v$rt)
+```
+
+
+## 4、JASP数据格式
+```{r}
+# # JASP 贝叶斯重复测量方差分析数据框
+# df.v.jasp <- df.v%>%
+#   mutate(
+#     condition = case_when(condition == "TR_main" ~ "TR", condition == "TIR_main" ~ "TIR", ),
+#     shapes = case_when(
+#       shapes == "自我" ~ "self",
+#       shapes == "朋友" ~ "friend",
+#       shapes == "生人" ~ "stranger",
+#     ),
+#     ismatch = case_when(ismatch == "1" ~ "match", ismatch == "0" ~ "mismatch", )
+#   )
+# 
+# # 计算每个被试的RT均值
+# df.rt.jasp <- df.v.jasp %>%
+#   dplyr::filter(acc == 1) %>%
+#   dplyr::group_by(subj_idx, condition, shapes, ismatch) %>%
+#   dplyr::summarise(RT_m = mean(rt), .groups = 'drop') %>%
+#   pivot_wider(names_from = c("condition", "shapes", "ismatch"),
+#               values_from = "RT_m") 
+# 
+# # 计算每个被试的ACC
+# df.acc.jasp <- df.v.jasp %>%
+#   dplyr::group_by(subj_idx, condition, shapes, ismatch) %>%
+#   dplyr::summarise(ACC = sum(acc) / length(acc), .groups = 'drop') %>%
+#   pivot_wider(names_from = c("condition", "shapes", "ismatch"),
+#               values_from = "ACC") 
+# 
+# # 计算每个被试的η
+# df.rt.long <- df.rt.jasp%>%
+#   pivot_longer(cols = -subj_idx,
+#                names_to = c("condition", "shapes", "ismatch"),
+#                names_sep = "_",
+#                values_to = "RT_m")
+# 
+# df.acc.long <- df.acc.jasp%>%
+#   pivot_longer(cols = -subj_idx,
+#                names_to = c("condition", "shapes", "ismatch"),
+#                names_sep = "_",
+#                values_to = "ACC")
+# 
+# df.η.jasp <- df.rt.long %>%
+#   inner_join(df.acc.long, by = c("subj_idx", "condition", "shapes", "ismatch")) %>%
+#   mutate(η = ifelse(ACC == 0, NA, RT_m / ACC)) %>%
+#   select(subj_idx, condition, shapes, ismatch, η)%>%
+#   pivot_wider(names_from = c("condition", "shapes", "ismatch"),
+#               values_from = "η")
+# 
+# # 计算每个被试的d prime
+# df.dprime.jasp <- df.v.jasp%>%
+#     group_by(subj_idx, condition, shapes) %>%   # 输入除ismatch外另外两个自变量
+#     summarise(
+#       match_trials = sum(ismatch == "match"),   # 匹配试次总数
+#       hits = sum(ismatch == "match" & acc == 1),   # 匹配情况下，正确识别为匹配
+#       nonmatch_trials = sum(ismatch == "mismatch"),   # 不匹配试次总数
+#       false_alarms = sum(ismatch == "mismatch" & acc == 0),   # 不匹配情况下，错误识别为匹配
+#       .groups = 'drop'
+#     ) %>%
+#     mutate(
+#       # 处理极端值：# 如果击中为1，则调整为1 - 1/(2N)；如果为0则调整为1/(2N)，否则按照hits/match_trials计算
+#       HR = ifelse(hits/match_trials == 1, 1 - 1/(2*match_trials),   
+#                  ifelse(hits/match_trials == 0, 1/(2*match_trials), hits/match_trials)),
+#       FAR = ifelse(false_alarms/nonmatch_trials == 1, 1 - 1/(2*nonmatch_trials),
+#                   ifelse(false_alarms/nonmatch_trials == 0, 1/(2*nonmatch_trials), false_alarms/nonmatch_trials)),
+#       dprime = qnorm(HR) - qnorm(FAR)   # 计算d prime
+#     )%>%
+#   select(subj_idx, condition, shapes, dprime)%>%
+#   pivot_wider(names_from = c("condition", "shapes"),
+#               values_from = "dprime")
+
+# jasp_path <- "C:/1_Postgraduate/TaskRelevance/2_Study2_Task_Relevence/2_4_Analysis/Jasp"
+# write_excel_csv(df.rt.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_rt_jasp.csv"))
+# write_excel_csv(df.acc.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_acc_jasp.csv"))
+# write_excel_csv(df.dprime.jasp, file = file.path(here('2_Study2_Task_Relevence', '2_4_Analysis', 'Jasp'), "exp2_dprime_jasp.csv"))
+```
+
+
+```{r}
+# JASP 配对样本t检验数据格式
+
+# unique_conditions <- unique(df.acc$condition)   # 获取 condition 列的所有唯一值
+# 
+# # ACC数据
+# for (cond in unique_conditions) {
+#         filtered_data <- df.acc.jasp %>% filter(condition == cond)
+#         file_name <- paste0("exp2_", cond, "_acc", ".csv")   # 构造文件名
+#         write_excel_csv(filtered_data, file_name)   # 将筛选后的数据保存为 CSV 文件
+# }
+# 
+# # RT数据
+# for (cond in unique_conditions) {
+#         filtered_data <- df.rt.jasp %>% filter(condition == cond)
+#         file_name <- paste0("exp2_", "rt_", cond, ".csv")
+#         write_excel_csv(filtered_data, file = file.path(base_path, file_name))
+# }
+```
+
+
+## 5、被试人口学信息统计
+```{r}
+# 基于有效被试的人口学信息统计
+df.basic <- df.v %>%
+        dplyr::select(subj_idx, year, gender) %>%
+        dplyr::distinct(subj_idx, .keep_all = TRUE) %>%     # 根据subject去重，保留完整行
+        dplyr::summarise(N = length(subj_idx),
+                         Nf = length(gender[gender == "1"]),   # 计算女性人数
+                         Nm = length(gender[gender == "0"]),   # 计算男性人数
+                         Age_mean = round(mean(year,na.rm=TRUE),2),
+                         Age_sd = round(sd(year,na.rm=TRUE),2)
+        )
+```
+
+# 数据预览
+```{r}
+# 计算每个被试的RT均值与ACC
+df.subj.rt_m <- df.v %>%
+        dplyr::filter(acc == 1) %>%
+        dplyr::group_by(subj_idx, TaskRelevance, CognitiveLoad, Identity, ismatch) %>%
+        dplyr::summarise(RT_m = mean(rt),
+                         RT_SD = sd(rt),
+                         RT_SE = RT_SD/sqrt(n()-1),
+                         Ntrial = length(rt),
+                         .groups = 'drop') 
+
+df.subj.tr.rt_m <- df.subj.rt_m %>%
+  dplyr::filter(TaskRelevance == "TaskRelevant")
+
+df.subj.tir.rt_m <- df.subj.rt_m %>%
+  dplyr::filter(TaskRelevance == "TaskIRRelevant")
+
+
+
+df.subj.acc <- df %>%
+        dplyr::group_by(subj_idx, TaskRelevance, CognitiveLoad, Identity, ismatch) %>%
+        dplyr::summarise(N = length(acc),      
+                         N_crrct = sum(acc),
+                         ACC = sum(acc)/length(acc),
+                         .groups = 'drop')
+
+df.subj.tr.acc <- df.subj.acc %>%
+  dplyr::filter(TaskRelevance == "TaskRelevant")
+
+df.subj.tir.acc <- df.subj.acc %>%
+  dplyr::filter(TaskRelevance == "TaskIRRelevant")
+
+
+```
+
+## 1、RT数据
+```{r}
+# 一个数据点表示一个被试均值
+
+plot_rt_m <- function(data) {
+  
+# 组织用于绘图的数据格式
+df.rt.plot <- data %>%
+  dplyr::mutate(
+    ismatch = case_when(ismatch == "1" ~ "match", ismatch == "0" ~ "mismatch"),
+    conds = case_when(
+      ismatch == "match" & Identity == "自我" ~ "0.7",
+      ismatch == "match" & Identity == "生人" ~ "1",
+      ismatch == "mismatch" & Identity == "自我" ~ "1.7",
+      ismatch == "mismatch" & Identity == "生人" ~ "2",
+    ),
+    conds = as.numeric(conds)
+  )
+
+# 计算各条件均值与标准误
+df.cond.rt_m <- df.rt.plot %>%
+  dplyr::group_by(TaskRelevance, CognitiveLoad, ismatch, Identity, conds) %>%
+  dplyr::summarise(RT_m = mean(RT_m),
+                   RT_SD = mean(RT_SD),
+                   RT_SE = mean(RT_SE),
+                   n = n()) %>%
+  dplyr::ungroup()
+
+# 绘制各条件均值
+plot_cond_rt_m <- df.cond.rt_m %>%
+  ggplot2::ggplot(.,
+                  aes(x = conds,
+                      y = RT_m,
+                      group = Identity,
+                      color = Identity)) +
+  ggplot2::geom_line(position = position_dodge(0.9), alpha = 0.6) +
+  ggplot2::geom_point(size = 3,
+                      position = position_dodge(0.9)) +
+  ggplot2::geom_errorbar(aes(ymin=RT_m-RT_SE,
+                             ymax=RT_m+RT_SE),
+                         width=.1,
+                         position = position_dodge(0.9)) +
+  facet_wrap(~CognitiveLoad)+
+  papaja::theme_apa()
+
+# 绘制各条件均值+每个被试均值
+plot_rt_m <- plot_cond_rt_m +
+    ggplot2::geom_point(data = df.rt.plot,
+                       aes(x = conds, y = RT_m, group = as.factor(subj_idx)),
+                      position = position_dodge(0.08),
+                      color="#000000",
+                      alpha = 0.05) +
+  ggplot2::geom_line(data = df.rt.plot,
+                     aes(x = conds,
+                         y = RT_m,
+                         group = as.factor(subj_idx)),
+                     position = position_dodge(0.08),
+                     linetype = 1,
+                     linewidth=0.8,
+                     color="#000000",
+                     alpha=0.05) +
+  ggplot2::labs(y = "RT")
+
+return(plot_rt_m)
+}
+
+plot.tr.rt_m <- plot_rt_m(df.subj.tr.rt_m)
+plot.tr.rt_m
+
+plot.tir.rt_m <- plot_rt_m(df.subj.tir.rt_m)
+plot.tir.rt_m
+```
+
+## 2、ACC数据
+```{r}
+# 一个数据点表示一个被试均值
+plot_acc <- function(data) {
+
+# 组织用于绘图的数据格式
+df.acc.plot <- data %>%
+  dplyr::mutate(
+    ismatch = case_when(ismatch == "1" ~ "match", ismatch == "0" ~ "mismatch"),
+    conds = case_when(
+      ismatch == "match" & Identity == "自我" ~ "0.7",
+      ismatch == "match" & Identity == "生人" ~ "1",
+      ismatch == "mismatch" & Identity == "自我" ~ "1.7",
+      ismatch == "mismatch" & Identity == "生人" ~ "2",
+    ),
+    conds = as.numeric(conds)
+  )
+
+# 计算各条件均值
+df.cond.acc <- df.acc.plot %>% 
+  dplyr::group_by(TaskRelevance, CognitiveLoad, ismatch, Identity, conds) %>%
+  dplyr::summarise(ACC = mean(ACC),
+                   n = n()) %>%
+  dplyr::ungroup()
+
+# 绘制各条件均值
+plot_cond_acc <- df.cond.acc %>%
+  ggplot2::ggplot(., 
+                  aes(x = conds,
+                      y = ACC,
+                      group = Identity,
+                      color = Identity)) +
+  ggplot2::geom_line(position = position_dodge(0.9), alpha = 0.6) +
+  ggplot2::geom_point(size = 3,
+                      position = position_dodge(0.9)) + 
+  facet_wrap(~CognitiveLoad)+
+  papaja::theme_apa()
+
+# 绘制各条件均值+每个被试均值
+plot_acc <- plot_cond_acc +
+    ggplot2::geom_point(data = df.acc.plot,
+                       aes(x = conds, y = ACC, group = as.factor(subj_idx)),
+                      position = position_dodge(0.08),
+                      color="#000000",
+                      alpha = 0.05) +
+  ggplot2::geom_line(data = df.acc.plot,
+                     aes(x = conds,
+                         y = ACC,
+                         group = as.factor(subj_idx)),
+                     position = position_dodge(0.08),
+                     linetype = 1,
+                     linewidth=0.8,
+                     color="#000000",
+                     alpha=0.05) +
+  ggplot2::labs(y = "ACC")
+
+return(plot_acc)
+
+}
+
+plot.tr.acc <- plot_acc(df.subj.tr.acc)
+plot.tr.acc
+
+plot.tir.acc <- plot_acc(df.subj.tir.acc)
+plot.tir.acc
+
+```
+
+# 贝叶斯因子序列分析
+```{r}
+# 关注匹配条件下，Identity*CognitiveLoad的交互：>10或者<1/10
+# 自我与任务有关数据
+df.tr.subj <- df.subj.rt_m %>%
+  dplyr::filter(TaskRelevance == "TaskRelevant") %>%
+  dplyr::filter(ismatch == "1") %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c("自我", "生人")),
+                CognitiveLoad = factor(CognitiveLoad, levels = c("Low", "High")))
+
+BF_tr_rt <- anovaBF(RT_m ~ Identity * CognitiveLoad, df.tr.subj, progress = FALSE)
+bayesfactor_inclusion(BF_tr_rt, match_models = TRUE)
+
+
+# 自我与任务无关数据
+df.tir.subj <- df.subj.rt_m %>%
+  dplyr::filter(TaskRelevance == "TaskIRRelevant") %>%
+  dplyr::filter(ismatch == "1") %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c("自我", "生人")),
+                CognitiveLoad = factor(CognitiveLoad, levels = c("Low", "High")))
+
+BF_tir_rt <- anovaBF(RT_m ~ Identity * CognitiveLoad, df.tir.subj, progress = FALSE)
+bayesfactor_inclusion(BF_tir_rt, match_models = TRUE)
+```
+
+
+# Bootstrap
+```{r}
+# Step1: 根据自变量分组，将每个组合下的RT与ACC变为一个数据点(RT,ACC)
+## 1.1 合并RT与ACC数据框，一行表示一个被试
+df_combined <- df.subj.rt_m %>%
+  left_join(df.subj.acc, by = c("subj_idx", "TaskRelevance", "CognitiveLoad", "ismatch", "Identity")) %>%
+  select(subj_idx, TaskRelevance, CognitiveLoad, ismatch, Identity, RT_m, ACC)
+
+## 1.2 获取每个条件组合下的数据框列表
+df_list <- df_combined %>%
+  group_by(TaskRelevance, CognitiveLoad, ismatch, Identity) %>%
+  group_split() %>%
+  setNames(
+    map_chr(., ~ paste(.x$TaskRelevance[1], .x$CognitiveLoad[1], .x$ismatch[1], .x$Identity[1], sep = "_"))
+  ) %>%
+  map(~ select(., RT_m, ACC))
+# names(df_list)
+# df_list[["TIR_main_朋友_0"]]   # 访问某个实验条件下的数据框
+
+
+
+# Step2: 进行一次有放回重采样，采样次数为单个条件的样本量；计算重采样样本的RT与ACC均值；重复k次
+## 2.1 定义重采样函数
+bootstrap_sample <- function(data) {
+  n <- nrow(data)   # 一行一个被试，获取实验条件下的样本量
+  indices <- sample(1:n, replace = TRUE, size = n)   # 从1：n中进行有放回抽样，抽取size次，返回一串索引
+  bootstrap_sample <- data[indices, ]   # 通过索引获取重采样数据，获取索引所在行，组合为重采样数据框1
+  return(bootstrap_sample)
+}
+
+## 2.2定义函数对每个条件数据点(RT,ACC)进行重采样与均值计算
+run_bootstrap_analysis <- function(data_list, k = 2000) {
+  results <- list()
+  set.seed(42)
+  for (condition_name in names(data_list)) {
+    data <- data_list[[condition_name]]   # 获取每个实验条件的数据点
+    
+    mean_rt <- numeric(k)
+    mean_acc <- numeric(k)
+    for (i in 1:k) {
+      bootstrap_sample_data <- bootstrap_sample(data)   # 进行一次重采样
+      mean_rt[i] <- mean(bootstrap_sample_data$RT_m)   # 计算单次重采样样本的RT均值
+      mean_acc[i] <- mean(bootstrap_sample_data$ACC)   # 计算单次重采样样本的ACC均值
+    }
+    results[[condition_name]] <- data.frame(   # 存储每个实验条件下的重采样均值结果
+      condition = condition_name,
+      mean_rt = mean_rt,
+      mean_acc = mean_acc
+    )
+  }
+  return(bind_rows(results))
+}
+
+## 2.3 使用函数
+bootstrap_results <- run_bootstrap_analysis(df_list, k = 2000)
+
+
+
+# Step3: 以acc为X轴，RT为Y轴，按匹配情况分为2个子图，子图内图例为标签，统一坐标轴范围和刻度
+## 3.1 整理用于画图的数据格式
+bootstrap_results_plot <- bootstrap_results %>%
+  separate(condition,
+           into = c( "TaskRelevance", "CognitiveLoad", "ismatch", "Identity"),
+           sep = "_") %>%
+  mutate(
+    TaskRelevance = factor(
+      case_when(
+        TaskRelevance == "TaskRelevant" ~ "任务有关",
+        TaskRelevance == "TaskIRRelevant" ~ "任务无关"
+      ),
+      levels = c("任务有关", "任务无关")
+    ),
+    CognitiveLoad = factor(
+      ifelse(CognitiveLoad == "Low", "低负荷", "高负荷"),
+      levels = c("低负荷", "高负荷")
+    ),
+    ismatch = factor(ifelse(ismatch == "0", "不匹配", "匹配"), levels = c("匹配", "不匹配")),
+    Identity = factor(Identity, levels = c("自我", "生人")),
+  ) %>%
+  relocate(mean_rt, mean_acc, .after = last_col())
+
+bootstrap_results_plot
+
+## 3.2 画图
+plot_bootstrap <- ggplot(bootstrap_results_plot, aes(x = mean_acc, y = mean_rt, color = Identity)) +
+  geom_point(alpha = 0.6, size = 2) +  # 添加透明度使重叠点可见
+  facet_grid(ismatch ~ TaskRelevance + CognitiveLoad) +
+  labs(
+    title = "Bootstrapping",
+    x = "正确率", 
+    y = "反应时(ms)",
+    color = "身份"
+  ) +
+  # ylim(500, 1000) +
+  xlim(0.5, 1.0) +
+  theme_apa() +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold"),
+    panel.spacing = unit(1, "lines")  # 增加面板间距
+  )
+
+print(plot_bootstrap)
+```
+
+# 贝叶斯层级模型
+```{r}
+# 数据整理
+df.v.trial <- df.v %>%
+  dplyr::mutate(
+    saymatch = ifelse((ismatch == '1' & acc == 1) |
+                              (ismatch == '0' & acc == 0), 1, 0),
+    Identity = factor(Identity, levels = c("自我",  "生人")),
+    ismatch = factor(ismatch, levels = c("1", "0")),   # 1表示匹配，0表示不匹配
+    CognitiveLoad = factor(CognitiveLoad, levels = c("Low", "High")),
+    TaskRelevance = factor(TaskRelevance, levels = c("TaskRelevant", "TaskIRRelevant"))
+  )%>%
+  dplyr::select(subj_idx, TaskRelevance, CognitiveLoad, Identity, ismatch, saymatch, response, acc, rt )
+
+# test_subj <- c("9", "10")
+
+# 自我与任务有关数据
+df.tr.trial <- df.v.trial %>%
+  dplyr::filter(TaskRelevance == "TaskRelevant",
+                # subj_idx %in% test_subj
+                )
+
+# 自我与任务无关数据
+df.tir.trial <- df.v.trial %>%
+  dplyr::filter(TaskRelevance == "TaskIRRelevant",
+                # subj_idx %in% test_subj
+                )
+```
+
+## 1、任务有关RT
+### （1）模型拟合
+```{r}
+var_both_tr_rt_model <- df.tr.trial %>%
+  dplyr::mutate(rt_sec = rt / 1000) %>%
+  dplyr::filter(acc == 1) %>%
+  dplyr::filter(ismatch == "1") %>%   # 仅对匹配试次统计
+  brms::brm(
+    rt_sec ~ Identity * CognitiveLoad +
+      (1 + Identity * CognitiveLoad | subj_idx),
+    family = lognormal(),
+    data = .,
+    chains = 4,
+    # warmup = 1000,
+    iter = 5000,   # 5000
+    thin = 1,
+    control = list(adapt_delta = .95),
+    cores = parallel::detectCores(),
+    backend = 'cmdstanr',
+    save_pars = save_pars(all = TRUE),
+    file = file.path(curDir, "glmmModels/TR_RT_var_both_model")
+  )
+```
+
+### （2）模型评估
+```{r}
+# ESS、Rhat
+summary(var_both_tr_rt_model)
+```
+
+```{r}
+# 轨迹图
+target_pars <- c(
+  "b_Intercept",
+  "b_Identity生人",
+  "b_CognitiveLoadHigh",
+  "b_Identity生人:CognitiveLoadHigh"
+  )
+
+trace_plot <- bayesplot::mcmc_trace(
+  var_both_tr_rt_model, 
+  pars = target_pars,
+  facet_args = list(nrow = 2, ncol = 2))
+trace_plot
+# ggsave(file.path(figDir, "trace_plot.png"))
+```
+
+```{r}
+# 概率密度曲线
+p_sample <- bayestestR::estimate_density(var_both_tr_rt_model)
+plot(p_sample)
+# ggsave(file.path(figDir, "parameters_distribution.png"))
+
+# 同时绘制采样分布与轨迹图
+# p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
+# p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
+# p_dens + p_trace
+```
+
+
+### （3）模型比较
+```{r}
+# MAE
+calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
+  # 计算每个观测的后验预测均值
+  pre_y_mean <- colMeans(model_ppc)
+  
+  # 构建数据框：预测均值 + 原始观测值
+  MAE_df <- data.frame(
+    RT_ppc_mean = pre_y_mean,
+    RT_original = original_data[[y_var]]  # 提取指定的响应变量观测值
+  )
+  
+  # 计算绝对预测误差
+  MAE_df <- MAE_df %>%
+    mutate(pre_error = abs(RT_original - RT_ppc_mean))
+  
+  # 计算误差的中位数
+  MAE_value <- median(MAE_df$pre_error, na.rm = TRUE)
+  
+  return(MAE_value)
+}
+
+# 后验预测
+rt_var_both_ppc <- posterior_predict(
+  object = var_both_tr_rt_model,
+)
+
+rt_var_both_mae <- calculate_MAE(rt_var_both_ppc, var_both_tr_rt_model$data, "rt_sec")
+
+```
+
+```{r}
+# loo
+# loo <- loo::loo(var_both_tr_rt_model)
+```
+
+
+### （4）后验预测检验
+```{r}
+# performance::check_predictions(RT_m1, check_range = TRUE)
+bayesplot::pp_check(var_both_tr_rt_model, type = "dens_overlay", ndraws = 1000)
+# ggsave(file.path(figDir, "modle_estimation.png"))
+```
+
+
+### （5）推断统计
+```{r}
+# 固定效应，各个条件下反应时分布
+df_tr_rt_pop <- var_both_tr_rt_model %>%
+  tidybayes::gather_draws(`b_.*`, regex = TRUE) %>%
+  dplyr::rename(term = .variable,
+                pop_mean = .value) %>%  # gather_draws会将变量存储为1列，所有的值存储为另一列
+  dplyr::ungroup() %>%
+  dplyr::mutate(term = gsub("b_", "", term))%>%
+  tidyr::pivot_wider(names_from = c(term), values_from = pop_mean) %>%   # long to wide
+  # 计算各条件反应时分布
+  dplyr::mutate(
+    Self_Low = Intercept,   #  self和low被编码为0              
+    Stranger_Low = Intercept  + Identity生人,
+    Self_High = Intercept + CognitiveLoadHigh,             
+    Stranger_High = Intercept + CognitiveLoadHigh + Identity生人 + `Identity生人:CognitiveLoadHigh`)%>%
+  dplyr::select(`.chain`, `.iteration`, `.draw`,
+                Self_Low, Stranger_Low, Self_High,Stranger_High) %>%
+  # wide to long
+  tidyr::pivot_longer(cols = Self_Low:Stranger_High, names_to = "term", values_to =  "value") %>%  
+  dplyr::mutate(term = factor(term, levels = c(
+                'Self_Low', 'Stranger_Low', 'Self_High','Stranger_High')),
+  # log还原
+  value = exp(value),
+  value = value *1000)
+
+summary(df_tr_rt_pop)
+
+```
+
+
+```{r}
+# 固定效应，条件间差异分布
+df_tr_rt_pop_diff_wide <- df_tr_rt_pop %>%
+  tidyr::pivot_wider(names_from = c(term), values_from = value) %>%
+  dplyr::mutate(
+    diff_SStr_Low = Self_Low - Stranger_Low ,
+    diff_SStr_High = Self_High - Stranger_High
+  ) %>%
+  dplyr::select(`.chain`, `.iteration`, `.draw`,
+    diff_SStr_Low, diff_SStr_High)
+
+summary(df_tr_rt_pop_diff_wide)
+
+```
+
+```{r}
+# 固定效应，后验分布描述
+df_tr_rt_fixed <- df_tr_rt_pop%>%
+  tidyr::pivot_wider(.,
+                     id_cols = c('.chain', '.iteration', '.draw'),
+                     names_from = term ) %>%
+  dplyr::select(-c('.chain', '.iteration', '.draw')) %>%
+  bayestestR::describe_posterior(.,
+                                 ci = 0.95,
+                                 ci_method = 'hdi',
+                                 test = c("p_direction", "p_significance"),
+                                 centrality = "median") %>%
+  tidyr::separate(Parameter, c('Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High')))
+
+# 95%CI在0s到600多s,这正常吗？均值和中位数是正常的
+```
+
+```{r}
+# 各条件中位数及可信区间
+
+## 低负荷
+med_tr_rt_Self_Low<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+ll_tr_rt_Self_Low<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+ul_tr_rt_Self_Low<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+
+med_tr_rt_Stranger_Low<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+ll_tr_rt_Stranger_Low<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+ul_tr_rt_Stranger_Low<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+
+
+## 高负荷
+med_tr_rt_Self_High<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+ll_tr_rt_Self_High<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+ul_tr_rt_Self_High<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Self' & df_tr_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+
+med_tr_rt_Stranger_High<- round(df_tr_rt_fixed$Median[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+ll_tr_rt_Stranger_High<- round(df_tr_rt_fixed$CI_low[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+ul_tr_rt_Stranger_High<- round(df_tr_rt_fixed$CI_high[df_tr_rt_fixed$Identity == 'Stranger' & df_tr_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+
+# 怎么CI_LOW会是0？
+
+```
+
+```{r}
+# 基于sexit框架进行统计推断（改）
+bayestestR::sexit(df_tr_rt_pop_diff_wide[,c(4:5)])
+```
+
+
+### （6）结果可视化
+```{r}
+# 固定效应，后验分布均值图
+plot(conditional_effects(var_both_tr_rt_model),plot = FALSE)[3]
+```
+
+
+```{r}
+# p1：绘制各个条件下反应时后验分布（固定效应）
+
+## 固定效应均值
+vlines <- df_tr_rt_pop %>%
+  tidyr::separate(term, c('Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High'))) %>%
+  dplyr::group_by(Identity, CognitiveLoad) %>%
+  dplyr::summarize(Mean = mean(value))
+
+## 各个条件RT后验分布
+p_tr_rt <- df_tr_rt_pop %>%
+  tidyr::separate(term, c('Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High'))) %>%
+  ggplot2::ggplot(., aes(x = value, color = Identity)) +
+  tidybayes::stat_halfeye(aes(fill = Identity), alpha = 0.6) +
+  geom_vline(data = vlines,
+             aes(xintercept = Mean, color = Identity),
+             linetype = "dashed") +
+  facet_wrap( ~ CognitiveLoad, nrow = 1) +
+  labs(x = expression('Posteior distribution of reaction times'))+
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2")
+# theme_apa()
+p_tr_rt
+```
+
+```{r}
+# p2：绘制各个条件反应时差异的后验分布（固定效应）
+
+# 绘图数据
+df_tr_rt_pop_diff <- df_tr_rt_pop_diff_wide %>%
+  # wide to long
+  tidyr::pivot_longer(
+    cols = diff_SStr_Low:diff_SStr_High,
+    names_to = "term_diff",
+    values_to =  "value"
+  ) %>%
+  dplyr::mutate(term_diff = factor(
+    term_diff,
+    levels = c(
+      'diff_SStr_Low','diff_SStr_High')
+  ))
+
+
+p_tr_rt_diff <- df_tr_rt_pop_diff %>%
+  ggplot2::ggplot(aes(x = value, fill = after_stat(x < 0))) +   # RT：self快于friend/stranger(SPE)
+  tidybayes::stat_halfeye() +
+  geom_vline(xintercept = 0, linetype = "dashed") + # 添加x=0的垂线
+  scale_fill_manual(
+    values = c('#2980B9', '#E74C3C'),# 蓝色出现在true组，红色出现在false组
+    breaks = c(TRUE, FALSE),
+    name = "Effect" ,
+    labels = c("<0", ">0")# 标签yes表示x<0
+  ) +
+  xlab("各条件反应时差异分布") +
+  facet_wrap( ~ term_diff, nrow = 1, ) 
+
+p_tr_rt_diff
+
+# ggsave(file.path(figDir, "diff_compare.png"))
+
+```
+
+
+```{r}
+# 回归系数后验分布可视化（不重要，补充信息）
+
+## HDI 是否包含0
+RT_hdi <- bayestestR::hdi(var_both_tr_rt_model, ci = 0.95)
+RT_hdi
+plot(RT_hdi) + scale_fill_flat()
+
+
+## 回归系数>0或<0的比例
+RR_PD <- bayestestR::p_direction(var_both_tr_rt_model)
+RR_PD
+plot(RR_PD)
+
+# 参数不为0的比例
+RR_PS <- bayestestR::p_significance(var_both_tr_rt_model)
+RR_PS
+x <- plot(RR_PS)
+# 提取颜色
+g <- ggplot2::ggplot_build(x)
+unique(g$data[[1]]$fill)
+```
+
+## 2、任务有关ACC：信号检测论
+### （1）模型拟合
+```{r}
+# fit a three-level hierarchical model for RT, didn't specify the prior, lognormal, effective coding
+var_both_tr_sdt_model <- brms::brm(saymatch ~ 0 + Identity:CognitiveLoad + ismatch:Identity:CognitiveLoad + 
+                          (0 + Identity:CognitiveLoad + ismatch:Identity:CognitiveLoad | subj_idx),
+                  family = bernoulli(link="probit"), 
+                  data = df.tr.trial,
+                  chains = 4,
+                  # warmup = 1000,
+                  iter = 1000,   # 5000
+                  thin = 1,
+                  control = list(adapt_delta = .95),
+                  cores = parallel::detectCores(),
+                  backend = 'cmdstanr',  # with cmdstanr
+                  save_pars = save_pars(all = TRUE),
+                  file = file.path(curDir, "glmmModels/TR_sdt_var_both_model")
+                  )
+```
+
+### （2）模型评估
+```{r}
+# ESS、Rhat
+summary(var_both_tr_sdt_model)
+```
+
+```{r}
+# 轨迹图
+# var_both_tr_sdt_model$fit
+
+target_pars <- c(
+"b_Identity自我:CognitiveLoadLow",
+"b_Identity生人:CognitiveLoadLow",
+"b_Identity自我:CognitiveLoadHigh",
+"b_Identity生人:CognitiveLoadHigh",
+"b_Identity自我:CognitiveLoadLow:ismatch0",
+"b_Identity生人:CognitiveLoadLow:ismatch0",
+"b_Identity自我:CognitiveLoadHigh:ismatch0",
+"b_Identity生人:CognitiveLoadHigh:ismatch0",
+)
+
+trace_plot <- bayesplot::mcmc_trace(
+  var_both_tr_sdt_model, 
+  pars = target_pars,
+  facet_args = list(nrow = 2, ncol = 4)
+  )
+trace_plot
+# ggsave(file.path(figDir, "trace_plot.png"))
+```
+
+```{r}
+# 概率密度曲线
+p_sample <- bayestestR::estimate_density(var_both_tr_sdt_model)
+plot(p_sample)
+# ggsave(file.path(figDir, "parameters_distribution.png"))
+
+# 同时绘制采样分布与轨迹图
+# p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
+# p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
+# p_dens + p_trace
+```
+
+
+### （3）模型比较
+```{r}
+# MAE
+calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
+  # 计算每个观测的后验预测均值
+  pre_y_mean <- colMeans(model_ppc)
+  
+  # 构建数据框：预测均值 + 原始观测值
+  MAE_df <- data.frame(
+    RT_ppc_mean = pre_y_mean,
+    RT_original = original_data[[y_var]]  # 提取指定的响应变量观测值
+  )
+  
+  # 计算绝对预测误差
+  MAE_df <- MAE_df %>%
+    mutate(pre_error = abs(RT_original - RT_ppc_mean))
+  
+  # 计算误差的中位数
+  MAE_value <- median(MAE_df$pre_error, na.rm = TRUE)
+  
+  return(MAE_value)
+}
+
+# 后验预测
+tr_sdt_var_both_ppc <- posterior_predict(
+  object = var_both_tr_sdt_model,
+)
+
+tr_sdt_var_both_mae <- calculate_MAE(tr_sdt_var_both_ppc, var_both_tr_sdt_model$data, "saymatch")
+
+```
+
+```{r}
+# loo
+# loo <- loo::loo(var_both_tr_sdt_model)
+```
+
+
+### （4）后验预测检验
+```{r}
+# performance::check_predictions(RT_m1, check_range = TRUE)
+bayesplot::pp_check(var_both_tr_sdt_model, type = "dens_overlay", ndraws = 1000)
+# ggsave(file.path(figDir, "modle_estimation.png"))
+```
+
+
+### （5）推断统计
+```{r}
+# 固定效应，各个条件下参数分布
+df_tr_sdt_pop <- var_both_tr_sdt_model %>%
+  tidybayes::gather_draws(`b_.*`, regex = TRUE) %>%
+  dplyr::rename(term = .variable, value = .value) %>%  # gather_draws会将变量存储为1列，所有的值存储为另一列
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    term = gsub("b_", "", term),
+    Identity = dplyr::case_when(grepl("自我", term) ~ "Self", 
+                                grepl("生人", term) ~"Stranger"),
+    CognitiveLoad = dplyr::case_when(grepl("Low", term) ~ "Low", 
+                                     grepl("High", term) ~ "High"),
+    params = dplyr::case_when(grepl("0", term) ~ "dprime", 
+                              !grepl("0", term) ~ "c"),
+    Identity = factor(Identity, levels = c("Self", "Stranger")), 
+    CognitiveLoad = factor(CognitiveLoad, levels = c("Low", "High")),
+    params = factor(params, levels = c("dprime", "c")),
+  )
+
+```
+
+```{r}
+# 固定效应，条件间差异分布
+df_tr_sdt_pop_diff_wide <- df_tr_sdt_pop %>%
+  tidyr::unite(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  tidyr::pivot_wider(names_from = c(term), values_from = value) %>%
+  dplyr::mutate(
+    diff_SStr_dprm_L = dprime_Self_Low - dprime_Stranger_Low ,
+    diff_SStr_dprm_H = dprime_Self_High - dprime_Stranger_High ,
+    diff_LH_dprm_S = dprime_Self_Low - dprime_Self_High,
+    diff_LH_dprm_Str = dprime_Stranger_Low - dprime_Stranger_High,
+    diff_diff_SStr = diff_SStr_dprm_L - diff_SStr_dprm_H,
+  ) %>%
+  dplyr::select(`.chain`, `.iteration`, `.draw`,
+    diff_SStr_dprm_L, diff_SStr_dprm_H, diff_LH_dprm_S, diff_LH_dprm_Str, diff_diff_SStr)
+
+```
+
+```{r}
+# 固定效应，后验分布描述
+df_tr_sdt_fixed <- df_tr_sdt_pop%>%
+  tidyr::unite(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  tidyr::pivot_wider(.,
+                     id_cols = c('.chain', '.iteration', '.draw'),
+                     names_from = term ) %>%
+  dplyr::select(-c('.chain', '.iteration', '.draw')) %>%
+  bayestestR::describe_posterior(.,
+                                 ci = 0.95,
+                                 ci_method = 'hdi',
+                                 test = c("p_direction", "p_significance"),
+                                 centrality = "median") %>%
+  tidyr::separate(Parameter, c('params', 'Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High')),
+                params = factor(params, levels = c('c', 'dprime')))
+```
+
+```{r}
+# 各条件中位数及可信区间
+
+# 低负荷
+med_tr_sdt_Self_Low<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$CognitiveLoad == 'Low' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+ll_tr_sdt_Self_Low<<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$CognitiveLoad == 'Low' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+ul_tr_sdt_Self_Low<<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$CognitiveLoad == 'Low' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+
+med_tr_sdt_Stranger_Low<<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$CognitiveLoad == 'Low' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+ll_tr_sdt_Stranger_Low<<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$CognitiveLoad == 'Low' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+ul_tr_sdt_Stranger_Low<<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$CognitiveLoad == 'Low' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+
+# 高负荷
+med_tr_sdt_Self_High<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$CognitiveLoad == 'High' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+ll_tr_sdt_Self_High<<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$CognitiveLoad == 'High' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+ul_tr_sdt_Self_High<<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Self' & df_tr_sdt_fixed$CognitiveLoad == 'High' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+
+med_tr_sdt_Stranger_High<<- round(df_tr_sdt_fixed$Median[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$CognitiveLoad == 'High' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+ll_tr_sdt_Stranger_High<<- round(df_tr_sdt_fixed$CI_low[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$CognitiveLoad == 'High' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+ul_tr_sdt_Stranger_High<<- round(df_tr_sdt_fixed$CI_high[df_tr_sdt_fixed$Identity == 'Stranger' & df_tr_sdt_fixed$CognitiveLoad == 'High' & df_tr_sdt_fixed$params == 'dprime'], digits = 0)
+
+```
+
+```{r}
+# 基于sexit框架进行统计推断
+bayestestR::sexit(df_tr_sdt_pop_diff_wide[,c(4:8)])
+```
+
+
+### （6）结果可视化
+```{r}
+# 固定效应，后验分布均值图
+plot(conditional_effects(var_both_tr_sdt_model))
+
+```
+
+
+```{r}
+# p1：绘制各个条件下反应时后验分布（固定效应）
+
+## 固定效应均值
+vlines <- df_tr_sdt_pop %>%
+  tidyr::unite(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  tidyr::separate(term, c('params', 'Identity','CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High')),
+                params = factor(params, levels = c('c', 'dprime'))) %>%
+  dplyr::filter(params == 'dprime') %>%
+  dplyr::group_by(Identity, CognitiveLoad) %>%
+  dplyr::summarize(Mean = mean(value))
+
+## 各个条件RT后验分布
+p_sdt_rt <- df_tr_sdt_pop %>%
+  tidyr::unite(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  tidyr::separate(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High')),
+                params = factor(params, levels = c('c', 'dprime'))) %>%
+  dplyr::filter(params == 'dprime') %>%
+  ggplot2::ggplot(aes(x = value, color = Identity)) +
+  tidybayes::stat_halfeye(aes(fill = Identity), alpha = 0.6) +
+  geom_vline(data = vlines,
+             aes(xintercept = Mean, color = Identity),
+             linetype = "dashed") +
+  facet_wrap(~CognitiveLoad) + 
+  labs(x = expression('Posteior distribution of ACC')) +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2")
+# theme_apa()
+
+p_sdt_rt
+```
+
+```{r}
+# p2：绘制各个条件反应时差异的后验分布（固定效应）
+
+
+p_tr_sdt_diff_SStr <- df_tr_sdt_pop_diff_wide %>%
+  tidyr::pivot_longer(cols = diff_SStr_dprm_L:diff_diff_SStr, names_to = "term_diff", values_to =  "value")%>%
+  dplyr::filter(str_detect(term_diff, '_dprm_L|_dprm_H')) %>%
+  dplyr::mutate(term_diff = factor(term_diff,levels = c('diff_SStr_dprm_L', 'diff_SStr_dprm_H')))%>%
+  ggplot2::ggplot(aes(x = value, fill = after_stat(x > 0))) +   # dprime：self大于friend/stranger(SPE)
+  tidybayes::stat_halfeye() +
+  geom_vline(xintercept = 0, linetype = "dashed") + # 添加x=0的垂线
+  scale_fill_manual(
+    values = c('#2980B9', '#E74C3C'),# 蓝色出现在true组，红色出现在false组
+    breaks = c(TRUE, FALSE),
+    name = "Effect" ,
+    labels = c("<0", ">0")# 标签yes表示x<0
+  ) +
+  xlab("各条件dprime差异分布") +
+  facet_wrap( ~ term_diff, nrow = 1, ) 
+
+
+p_tr_sdt_diff_LH <- df_tr_sdt_pop_diff_wide %>%
+  tidyr::pivot_longer(cols = diff_SStr_dprm_L:diff_diff_SStr, names_to = "term_diff", values_to =  "value")%>%
+  dplyr::filter(str_detect(term_diff, '_dprm_S|_dprm_Str')) %>%
+  dplyr::mutate(term_diff = factor(term_diff,levels = c('diff_LH_dprm_S', 'diff_LH_dprm_Str')))%>%
+  ggplot2::ggplot(aes(x = value, fill = after_stat(x > 0))) +   # dprime：self大于friend/stranger(SPE)
+  tidybayes::stat_halfeye() +
+  geom_vline(xintercept = 0, linetype = "dashed") + # 添加x=0的垂线
+  scale_fill_manual(
+    values = c('#2980B9', '#E74C3C'),# 蓝色出现在true组，红色出现在false组
+    breaks = c(TRUE, FALSE),
+    name = "Effect" ,
+    labels = c("<0", ">0")# 标签yes表示x<0
+  ) +
+  xlab("各条件dprime差异分布") +
+  facet_wrap( ~ term_diff, nrow = 1, ) 
+
+
+p_tr_sdt_diff_SStr
+
+p_tr_sdt_diff_LH
+
+# ggsave(file.path(figDir, "diff_compare.png"))
+
+```
+
+## 3、任务无关RT
+### （1）模型拟合
+```{r}
+var_both_tir_rt_model <- df.tir.trial %>%
+  dplyr::mutate(rt_sec = rt / 1000) %>%
+  dplyr::filter(acc == 1) %>%
+  dplyr::filter(ismatch == "1") %>%   # 仅对匹配试次统计
+  brms::brm(
+    rt_sec ~ Identity * CognitiveLoad +
+      (1 + Identity * CognitiveLoad | subj_idx),
+    family = lognormal(),
+    data = .,
+    chains = 4,
+    # warmup = 1000,
+    iter = 500,   # 5000
+    thin = 1,
+    control = list(adapt_delta = .95),
+    cores = parallel::detectCores(),
+    backend = 'cmdstanr',
+    save_pars = save_pars(all = TRUE),
+    file = file.path(curDir, "glmmModels/TIR_RT_var_both_model")
+  )
+```
+
+### （2）模型评估
+```{r}
+# ESS、Rhat
+summary(var_both_tir_rt_model)
+```
+
+```{r}
+# 轨迹图
+target_pars <- c(
+  "b_Intercept",
+  "b_Identity生人",
+  "b_CognitiveLoadHigh",
+  "b_Identity生人:CognitiveLoadHigh"
+  )
+
+trace_plot <- bayesplot::mcmc_trace(
+  var_both_tir_rt_model, 
+  pars = target_pars,
+  facet_args = list(nrow = 2, ncol = 2))
+trace_plot
+# ggsave(file.path(figDir, "trace_plot.png"))
+```
+
+```{r}
+# 概率密度曲线
+p_sample <- bayestestR::estimate_density(var_both_tir_rt_model)
+plot(p_sample)
+# ggsave(file.path(figDir, "parameters_distribution.png"))
+
+# 同时绘制采样分布与轨迹图
+# p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
+# p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
+# p_dens + p_trace
+```
+
+
+### （3）模型比较
+```{r}
+# MAE
+calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
+  # 计算每个观测的后验预测均值
+  pre_y_mean <- colMeans(model_ppc)
+  
+  # 构建数据框：预测均值 + 原始观测值
+  MAE_df <- data.frame(
+    RT_ppc_mean = pre_y_mean,
+    RT_original = original_data[[y_var]]  # 提取指定的响应变量观测值
+  )
+  
+  # 计算绝对预测误差
+  MAE_df <- MAE_df %>%
+    mutate(pre_error = abs(RT_original - RT_ppc_mean))
+  
+  # 计算误差的中位数
+  MAE_value <- median(MAE_df$pre_error, na.rm = TRUE)
+  
+  return(MAE_value)
+}
+
+# 后验预测
+rt_var_both_ppc <- posterior_predict(
+  object = var_both_tir_rt_model,
+)
+
+rt_var_both_mae <- calculate_MAE(rt_var_both_ppc, var_both_tir_rt_model$data, "rt_sec")
+
+```
+
+```{r}
+# loo
+# loo <- loo::loo(var_both_tir_rt_model)
+```
+
+
+### （4）后验预测检验
+```{r}
+# performance::check_predictions(RT_m1, check_range = TRUE)
+bayesplot::pp_check(var_both_tir_rt_model, type = "dens_overlay", ndraws = 1000)
+# ggsave(file.path(figDir, "modle_estimation.png"))
+```
+
+
+### （5）推断统计
+```{r}
+# 固定效应，各个条件下反应时分布
+df_tir_rt_pop <- var_both_tir_rt_model %>%
+  tidybayes::gather_draws(`b_.*`, regex = TRUE) %>%
+  dplyr::rename(term = .variable,
+                pop_mean = .value) %>%  # gather_draws会将变量存储为1列，所有的值存储为另一列
+  dplyr::ungroup() %>%
+  dplyr::mutate(term = gsub("b_", "", term))%>%
+  tidyr::pivot_wider(names_from = c(term), values_from = pop_mean) %>%   # long to wide
+  # 计算各条件反应时分布
+  dplyr::mutate(
+    Self_Low = Intercept,   #  self和match被编码为0              
+    Stranger_Low = Intercept  + Identity生人,
+    Self_High = Intercept + CognitiveLoadHigh,             
+    Stranger_High = Intercept + CognitiveLoadHigh + Identity生人 + Identity生人:CognitiveLoadHigh)%>%
+  dplyr::select(`.chain`, `.iteration`, `.draw`,
+                Self_Low, Stranger_Low, Self_High,Stranger_High) %>%
+  # wide to long
+  tidyr::pivot_longer(cols = Self_Low:Stranger_High, names_to = "term", values_to =  "value") %>%  
+  dplyr::mutate(term = factor(term, levels = c(
+                'Self_Low', 'Stranger_Low', 'Self_High','Stranger_High')),
+  # log还原
+  value = exp(value),
+  value = value *1000)
+
+```
+
+
+```{r}
+# 固定效应，条件间差异分布
+df_tir_rt_pop_diff_wide <- df_tir_rt_pop %>%
+  tidyr::pivot_wider(names_from = c(term), values_from = value) %>%
+  dplyr::mutate(
+    diff_SStr_Low = Self_Low - Stranger_Low ,
+    diff_SStr_High = Self_High - Stranger_High
+  ) %>%
+  dplyr::select(`.chain`, `.iteration`, `.draw`,
+    diff_SStr_Low, diff_SStr_High)
+
+```
+
+```{r}
+# 固定效应，后验分布描述
+df_tir_rt_fixed <- df_tir_rt_pop%>%
+  tidyr::pivot_wider(.,
+                     id_cols = c('.chain', '.iteration', '.draw'),
+                     names_from = term ) %>%
+  dplyr::select(-c('.chain', '.iteration', '.draw')) %>%
+  bayestestR::describe_posterior(.,
+                                 ci = 0.95,
+                                 ci_method = 'hdi',
+                                 test = c("p_direction", "p_significance"),
+                                 centrality = "median") %>%
+  tidyr::separate(Parameter, c('Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High')))
+```
+
+```{r}
+# 各条件中位数及可信区间
+
+## 低负荷
+med_tir_rt_Self_Low<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+ll_tir_rt_Self_Low<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+ul_tir_rt_Self_Low<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+
+med_tir_rt_Stranger_Low<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+ll_tir_rt_Stranger_Low<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+ul_tir_rt_Stranger_Low<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$CognitiveLoad == 'Low'], digits = 0)
+
+
+## 高负荷
+med_tir_rt_Self_High<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+ll_tir_rt_Self_High<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+ul_tir_rt_Self_High<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Self' & df_tir_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+
+med_tir_rt_Stranger_High<- round(df_tir_rt_fixed$Median[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+ll_tir_rt_Stranger_High<- round(df_tir_rt_fixed$CI_low[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+ul_tir_rt_Stranger_High<- round(df_tir_rt_fixed$CI_high[df_tir_rt_fixed$Identity == 'Stranger' & df_tir_rt_fixed$CognitiveLoad == 'High'], digits = 0)
+
+```
+
+```{r}
+# 基于sexit框架进行统计推断（改）
+bayestestR::sexit(df_tir_rt_pop_diff_wide[,c(4:5)])
+```
+
+
+### （6）结果可视化
+```{r}
+# 固定效应，后验分布均值图
+plot(conditional_effects(var_both_tir_rt_model),plot = FALSE)[3]
+```
+
+
+```{r}
+# p1：绘制各个条件下反应时后验分布（固定效应）
+
+## 固定效应均值
+vlines <- df_tir_rt_pop %>%
+  tidyr::separate(term, c('Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High'))) %>%
+  dplyr::group_by(Identity, CognitiveLoad) %>%
+  dplyr::summarize(Mean = mean(value))
+
+## 各个条件RT后验分布
+p_tir_rt <- df_tir_rt_pop %>%
+  tidyr::separate(term, c('Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High'))) %>%
+  ggplot2::ggplot(., aes(x = value, color = Identity)) +
+  tidybayes::stat_halfeye(aes(fill = Identity), alpha = 0.6) +
+  geom_vline(data = vlines,
+             aes(xintercept = Mean, color = Identity),
+             linetype = "dashed") +
+  facet_wrap( ~ CognitiveLoad, nrow = 1) +
+  labs(x = expression('Posteior distribution of reaction times'))+
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2")
+# theme_apa()
+p_tir_rt
+```
+
+```{r}
+# p2：绘制各个条件反应时差异的后验分布（固定效应）
+
+# 绘图数据
+df_tir_rt_pop_diff <- df_tir_rt_pop_diff_wide %>%
+  # wide to long
+  tidyr::pivot_longer(
+    cols = diff_SStr_Low:diff_SStr_High,
+    names_to = "term_diff",
+    values_to =  "value"
+  ) %>%
+  dplyr::mutate(term_diff = factor(
+    term_diff,
+    levels = c(
+      'diff_SStr_Low','diff_SStr_High')
+  ))
+
+
+p_tir_rt_diff <- df_tir_rt_pop_diff %>%
+  ggplot2::ggplot(aes(x = value, fill = after_stat(x < 0))) +   # RT：self快于friend/stranger(SPE)
+  tidybayes::stat_halfeye() +
+  geom_vline(xintercept = 0, linetype = "dashed") + # 添加x=0的垂线
+  scale_fill_manual(
+    values = c('#2980B9', '#E74C3C'),# 蓝色出现在true组，红色出现在false组
+    breaks = c(TRUE, FALSE),
+    name = "Effect" ,
+    labels = c("<0", ">0")# 标签yes表示x<0
+  ) +
+  xlab("各条件反应时差异分布") +
+  facet_wrap( ~ term_diff, nrow = 1, ) 
+
+p_tir_rt_diff
+
+# ggsave(file.path(figDir, "diff_compare.png"))
+
+```
+
+
+```{r}
+# 回归系数后验分布可视化（不重要，补充信息）
+
+## HDI 是否包含0
+RT_hdi <- bayestestR::hdi(var_both_tir_rt_model, ci = 0.95)
+RT_hdi
+plot(RT_hdi) + scale_fill_flat()
+
+
+## 回归系数>0或<0的比例
+RR_PD <- bayestestR::p_direction(var_both_tir_rt_model)
+RR_PD
+plot(RR_PD)
+
+# 参数不为0的比例
+RR_PS <- bayestestR::p_significance(var_both_tir_rt_model)
+RR_PS
+x <- plot(RR_PS)
+# 提取颜色
+g <- ggplot2::ggplot_build(x)
+unique(g$data[[1]]$fill)
+```
+
+## 4、任务无关ACC：信号检测论
+### （1）模型拟合
+```{r}
+# fit a three-level hierarchical model for RT, didn't specify the prior, lognormal, effective coding
+var_both_tir_sdt_model <- brms::brm(saymatch ~ 0 + Identity:CognitiveLoad + ismatch:Identity:CognitiveLoad + 
+                          (0 + Identity:CognitiveLoad + ismatch:Identity:CognitiveLoad | subj_idx),
+                  family = bernoulli(link="probit"), 
+                  data = df.tir.trial,
+                  chains = 4,
+                  # warmup = 1000,
+                  iter = 1000,   # 5000
+                  thin = 1,
+                  control = list(adapt_delta = .95),
+                  cores = parallel::detectCores(),
+                  backend = 'cmdstanr',  # with cmdstanr
+                  save_pars = save_pars(all = TRUE),
+                  file = file.path(curDir, "glmmModels/TIR_sdt_var_both_model")
+                  )
+```
+
+### （2）模型评估
+```{r}
+# ESS、Rhat
+summary(var_both_tir_sdt_model)
+```
+
+```{r}
+# 轨迹图
+target_pars <- c(
+  "b_Identity自我:CognitiveLoadLow",
+  "b_Identity生人:CognitiveLoadLow",
+  "b_Identity自我:CognitiveLoadHigh",
+  "b_Identity生人:CognitiveLoadHigh",
+  "b_Identity自我:CognitiveLoadLow:ismatch0",
+  "b_Identity生人:CognitiveLoadLow:ismatch0",
+  "b_Identity自我:CognitiveLoadHigh:ismatch0",
+  "b_Identity生人:CognitiveLoadHigh:ismatch0",
+  )
+
+trace_plot <- bayesplot::mcmc_trace(
+  var_both_tir_sdt_model, 
+  pars = target_pars,
+  facet_args = list(nrow = 2, ncol = 4))
+trace_plot
+# ggsave(file.path(figDir, "trace_plot.png"))
+```
+
+```{r}
+# 概率密度曲线
+p_sample <- bayestestR::estimate_density(var_both_tir_sdt_model)
+plot(p_sample)
+# ggsave(file.path(figDir, "parameters_distribution.png"))
+
+# 同时绘制采样分布与轨迹图
+# p_dens <- mcmc_plot(RT_m1, type = "dens", pars = "^b_")
+# p_trace <- mcmc_plot(RT_m1, type = "trace", pars = "^b_")
+# p_dens + p_trace
+```
+
+
+### （3）模型比较
+```{r}
+# MAE
+calculate_MAE <- function(model_ppc, original_data, y_var = "log_RTs") {
+  # 计算每个观测的后验预测均值
+  pre_y_mean <- colMeans(model_ppc)
+  
+  # 构建数据框：预测均值 + 原始观测值
+  MAE_df <- data.frame(
+    RT_ppc_mean = pre_y_mean,
+    RT_original = original_data[[y_var]]  # 提取指定的响应变量观测值
+  )
+  
+  # 计算绝对预测误差
+  MAE_df <- MAE_df %>%
+    mutate(pre_error = abs(RT_original - RT_ppc_mean))
+  
+  # 计算误差的中位数
+  MAE_value <- median(MAE_df$pre_error, na.rm = TRUE)
+  
+  return(MAE_value)
+}
+
+# 后验预测
+tr_sdt_var_both_ppc <- posterior_predict(
+  object = var_both_tir_sdt_model,
+)
+
+tr_sdt_var_both_mae <- calculate_MAE(tr_sdt_var_both_ppc, var_both_tir_sdt_model$data, "saymatch")
+
+```
+
+```{r}
+# loo
+# loo <- loo::loo(var_both_tir_sdt_model)
+```
+
+
+### （4）后验预测检验
+```{r}
+# performance::check_predictions(RT_m1, check_range = TRUE)
+bayesplot::pp_check(var_both_tir_sdt_model, type = "dens_overlay", ndraws = 1000)
+# ggsave(file.path(figDir, "modle_estimation.png"))
+```
+
+
+### （5）推断统计
+```{r}
+# 固定效应，各个条件下参数分布
+df_tir_sdt_pop <- var_both_tir_sdt_model %>%
+  tidybayes::gather_draws(`b_.*`, regex = TRUE) %>%
+  dplyr::rename(term = .variable, value = .value) %>%  # gather_draws会将变量存储为1列，所有的值存储为另一列
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    term = gsub("b_", "", term),
+    Identity = dplyr::case_when(grepl("自我", term) ~ "Self", 
+                                grepl("生人", term) ~"Stranger"),
+    CognitiveLoad = dplyr::case_when(grepl("Low", term) ~ "Low", 
+                                     grepl("High", term) ~ "High"),
+    params = dplyr::case_when(grepl("0", term) ~ "dprime", 
+                              !grepl("0", term) ~ "c"),
+    Identity = factor(Identity, levels = c("Self", "Stranger")), 
+    CognitiveLoad = factor(CognitiveLoad, levels = c("Low", "High")),
+    params = factor(params, levels = c("dprime", "c")),
+  )
+
+```
+
+```{r}
+# 固定效应，条件间差异分布
+df_tir_sdt_pop_diff_wide <- df_tir_sdt_pop %>%
+  tidyr::unite(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  tidyr::pivot_wider(names_from = c(term), values_from = value) %>%
+  dplyr::mutate(
+    diff_SStr_dprm_L = dprime_Self_Low - dprime_Stranger_Low ,
+    diff_SStr_dprm_H = dprime_Self_High - dprime_Stranger_High ,
+    diff_LH_dprm_S = dprime_Self_Low - dprime_Self_High,
+    diff_LH_dprm_Str = dprime_Stranger_Low - dprime_Stranger_High,
+    diff_diff_SStr = diff_SStr_dprm_L - diff_SStr_dprm_H,
+  ) %>%
+  dplyr::select(`.chain`, `.iteration`, `.draw`,
+    diff_SStr_dprm_L, diff_SStr_dprm_H, diff_LH_dprm_S, diff_LH_dprm_Str, diff_diff_SStr)
+
+```
+
+```{r}
+# 固定效应，后验分布描述
+df_tir_sdt_fixed <- df_tir_sdt_pop%>%
+  tidyr::unite(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  tidyr::pivot_wider(.,
+                     id_cols = c('.chain', '.iteration', '.draw'),
+                     names_from = term ) %>%
+  dplyr::select(-c('.chain', '.iteration', '.draw')) %>%
+  bayestestR::describe_posterior(.,
+                                 ci = 0.95,
+                                 ci_method = 'hdi',
+                                 test = c("p_direction", "p_significance"),
+                                 centrality = "median") %>%
+  tidyr::separate(Parameter, c('params', 'Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High')),
+                params = factor(params, levels = c('c', 'dprime')))
+```
+
+```{r}
+# 各条件中位数及可信区间
+
+# 低负荷
+med_tir_sdt_Self_Low<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$shapes == 'Self' & df_tir_sdt_fixed$CognitiveLoad == 'Low' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+ll_tir_sdt_Self_Low<<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$shapes == 'Self' & df_tir_sdt_fixed$CognitiveLoad == 'Low' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+ul_tir_sdt_Self_Low<<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$shapes == 'Self' & df_tir_sdt_fixed$CognitiveLoad == 'Low' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+
+med_tir_sdt_Stranger_Low<<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$shapes == 'Stranger' & df_tir_sdt_fixed$CognitiveLoad == 'Low' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+ll_tir_sdt_Stranger_Low<<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$shapes == 'Stranger' & df_tir_sdt_fixed$CognitiveLoad == 'Low' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+ul_tir_sdt_Stranger_Low<<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$shapes == 'Stranger' & df_tir_sdt_fixed$CognitiveLoad == 'Low' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+
+# 高负荷
+med_tir_sdt_Self_High<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$shapes == 'Self' & df_tir_sdt_fixed$CognitiveLoad == 'High' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+ll_tir_sdt_Self_High<<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$shapes == 'Self' & df_tir_sdt_fixed$CognitiveLoad == 'High' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+ul_tir_sdt_Self_High<<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$shapes == 'Self' & df_tir_sdt_fixed$CognitiveLoad == 'High' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+
+med_tir_sdt_Stranger_High<<- round(df_tir_sdt_fixed$Median[df_tir_sdt_fixed$shapes == 'Stranger' & df_tir_sdt_fixed$CognitiveLoad == 'High' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+ll_tir_sdt_Stranger_High<<- round(df_tir_sdt_fixed$CI_low[df_tir_sdt_fixed$shapes == 'Stranger' & df_tir_sdt_fixed$CognitiveLoad == 'High' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+ul_tir_sdt_Stranger_High<<- round(df_tir_sdt_fixed$CI_high[df_tir_sdt_fixed$shapes == 'Stranger' & df_tir_sdt_fixed$CognitiveLoad == 'High' & df_tir_sdt_fixed$params == 'dprime'], digits = 0)
+
+```
+
+```{r}
+# 基于sexit框架进行统计推断
+bayestestR::sexit(df_tir_sdt_pop_diff_wide[,c(4:8)])
+```
+
+
+### （6）结果可视化
+```{r}
+# 固定效应，后验分布均值图
+plot(conditional_effects(var_both_tir_sdt_model),plot = FALSE)[2]
+```
+
+
+```{r}
+# p1：绘制各个条件下反应时后验分布（固定效应）
+
+## 固定效应均值
+vlines <- df_tir_sdt_pop %>%
+  tidyr::unite(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  tidyr::separate(term, c('params', 'Identity','CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High')),
+                params = factor(params, levels = c('c', 'dprime'))) %>%
+  dplyr::filter(params == 'dprime') %>%
+  dplyr::group_by(Identity, CognitiveLoad) %>%
+  dplyr::summarize(Mean = mean(value))
+
+## 各个条件RT后验分布
+p_sdt_rt <- df_tir_sdt_pop %>%
+  tidyr::unite(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  tidyr::separate(term, c('params', 'Identity', 'CognitiveLoad')) %>%
+  dplyr::mutate(Identity = factor(Identity, levels = c('Self', 'Stranger')),
+                CognitiveLoad = factor(CognitiveLoad, levels = c('Low', 'High')),
+                params = factor(params, levels = c('c', 'dprime'))) %>%
+  dplyr::filter(params == 'dprime') %>%
+  ggplot2::ggplot(aes(x = value, color = Identity)) +
+  tidybayes::stat_halfeye(aes(fill = Identity), alpha = 0.6) +
+  geom_vline(data = vlines,
+             aes(xintercept = Mean, color = Identity),
+             linetype = "dashed") +
+  facet_wrap(~CognitiveLoad) + 
+  labs(x = expression('Posteior distribution of ACC')) +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2")
+# theme_apa()
+
+p_sdt_rt
+```
+
+```{r}
+# p2：绘制各个条件反应时差异的后验分布（固定效应）
+
+
+p_tir_sdt_diff_SStr <- df_tir_sdt_pop_diff_wide %>%
+  tidyr::pivot_longer(cols = diff_SStr_dprm_L:diff_diff_SStr, names_to = "term_diff", values_to =  "value")%>%
+  dplyr::filter(str_detect(term_diff, '_dprm_L|_dprm_H')) %>%
+  dplyr::mutate(term_diff = factor(term_diff,levels = c('diff_SStr_dprm_L', 'diff_SStr_dprm_H')))%>%
+  ggplot2::ggplot(aes(x = value, fill = after_stat(x > 0))) +   # dprime：self大于friend/stranger(SPE)
+  tidybayes::stat_halfeye() +
+  geom_vline(xintercept = 0, linetype = "dashed") + # 添加x=0的垂线
+  scale_fill_manual(
+    values = c('#2980B9', '#E74C3C'),# 蓝色出现在true组，红色出现在false组
+    breaks = c(TRUE, FALSE),
+    name = "Effect" ,
+    labels = c("<0", ">0")# 标签yes表示x<0
+  ) +
+  xlab("各条件dprime差异分布") +
+  facet_wrap( ~ term_diff, nrow = 1, ) 
+
+
+p_tir_sdt_diff_LH <- df_tir_sdt_pop_diff_wide %>%
+  tidyr::pivot_longer(cols = diff_SStr_dprm_L:diff_diff_SStr, names_to = "term_diff", values_to =  "value")%>%
+  dplyr::filter(str_detect(term_diff, '_dprm_S|_dprm_Str')) %>%
+  dplyr::mutate(term_diff = factor(term_diff,levels = c('diff_LH_dprm_S', 'diff_LH_dprm_Str')))%>%
+  ggplot2::ggplot(aes(x = value, fill = after_stat(x > 0))) +   # dprime：self大于friend/stranger(SPE)
+  tidybayes::stat_halfeye() +
+  geom_vline(xintercept = 0, linetype = "dashed") + # 添加x=0的垂线
+  scale_fill_manual(
+    values = c('#2980B9', '#E74C3C'),# 蓝色出现在true组，红色出现在false组
+    breaks = c(TRUE, FALSE),
+    name = "Effect" ,
+    labels = c("<0", ">0")# 标签yes表示x<0
+  ) +
+  xlab("各条件dprime差异分布") +
+  facet_wrap( ~ term_diff, nrow = 1, ) 
+
+
+p_tir_sdt_diff_SStr
+
+p_tir_sdt_diff_LH
+
+# ggsave(file.path(figDir, "diff_compare.png"))
+
+```

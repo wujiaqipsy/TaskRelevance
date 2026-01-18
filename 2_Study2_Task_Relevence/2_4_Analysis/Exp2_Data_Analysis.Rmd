@@ -2120,6 +2120,23 @@ df_diff_diff
 ```
 
 ```{r}
+# 各条件中位数及可信区间
+
+## 匹配条件
+med_tir_rt_Self_Match<- round(median(df$diff_dfff_SF), digits = 2)
+ll_tir_rt_Self_Match<- round(df_diff_diff$CI_low[df_diff_diff$Identity == 'Self' & df_diff_diff$ismatch == 'Match'], digits = 2)
+ul_tir_rt_Self_Match<- round(df_diff_diff$CI_high[df_diff_diff$Identity == 'Self' & df_diff_diff$ismatch == 'Match'], digits = 2)
+
+med_tir_rt_Friend_Match<- round(median(df$diff_dfff_SStr), digits = 2)
+ll_tir_rt_Friend_Match<- round(df_diff_diff$CI_low[df_diff_diff$Identity == 'Friend' & df_diff_diff$ismatch == 'Match'], digits = 2)
+ul_tir_rt_Friend_Match<- round(df_diff_diff$CI_high[df_diff_diff$Identity == 'Friend' & df_diff_diff$ismatch == 'Match'], digits = 2)
+
+med_tir_rt_Stranger_Match<- round(median(df$diff_dfff_FStr), digits = 2)
+ll_tir_rt_Stranger_Match<- round(df_diff_diff$CI_low[df_diff_diff$Identity == 'Stranger' & df_diff_diff$ismatch == 'Match'], digits = 2)
+ul_tir_rt_Stranger_Match<- round(df_diff_diff$CI_high[df_diff_diff$Identity == 'Stranger' & df_diff_diff$ismatch == 'Match'], digits = 2)
+```
+
+```{r}
 bayestestR::sexit(df_diff_diff)
 ```
 
